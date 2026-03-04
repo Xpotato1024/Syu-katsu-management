@@ -19,21 +19,37 @@ import (
 func main() {
 	cfg := config.Load()
 
-	repo, cleanup, err := buildStore(cfg)
+	db, cleanup, err := buildDatabase(cfg)
 	if err != nil {
-		log.Fatalf("failed to initialize store: %v", err)
+		log.Fatalf("failed to initialize database: %v", err)
 	}
 	if cleanup != nil {
 		defer cleanup()
 	}
 
+	repo, err := buildCompanyStore(cfg, db)
+	if err != nil {
+		log.Fatalf("failed to initialize company store: %v", err)
+	}
+
+	localUserStore, err := buildLocalUserStore(cfg, db)
+	if err != nil {
+		log.Fatalf("failed to initialize auth store: %v", err)
+	}
+
 	authProvider, err := auth.NewProvider(auth.Config{
-		Mode:             cfg.AuthMode,
-		ProxyUserHeader:  cfg.AuthProxyUserHeader,
-		ProxyEmailHeader: cfg.AuthProxyEmailHeader,
-		DevUserID:        cfg.AuthDevUserID,
-		DevUserName:      cfg.AuthDevUserName,
-		DevUserEmail:     cfg.AuthDevUserEmail,
+		Mode:              cfg.AuthMode,
+		ProxyUserHeader:   cfg.AuthProxyUserHeader,
+		ProxyEmailHeader:  cfg.AuthProxyEmailHeader,
+		DevUserID:         cfg.AuthDevUserID,
+		DevUserName:       cfg.AuthDevUserName,
+		DevUserEmail:      cfg.AuthDevUserEmail,
+		LocalUserStore:    localUserStore,
+		SessionSecret:     cfg.AuthSessionSecret,
+		SessionCookieName: cfg.AuthSessionCookieName,
+		SessionTTL:        time.Duration(cfg.AuthSessionTTLHours) * time.Hour,
+		CookieSecure:      cfg.AuthCookieSecure,
+		AllowRegistration: cfg.AuthAllowRegistration,
 	})
 	if err != nil {
 		log.Fatalf("invalid auth configuration: %v", err)
@@ -82,28 +98,59 @@ func withCORS(next http.Handler, allowedOrigins, allowedHeaders string) http.Han
 	})
 }
 
-func buildStore(cfg config.Config) (company.Store, func(), error) {
+func buildDatabase(cfg config.Config) (*sql.DB, func(), error) {
+	needsDB := strings.TrimSpace(cfg.StorageBackend) == "" || strings.TrimSpace(cfg.StorageBackend) == "postgres" || strings.TrimSpace(cfg.AuthMode) == auth.ModeLocal
+	if !needsDB {
+		return nil, nil, nil
+	}
+	db, err := openPostgresWithRetry(cfg.DBConnString())
+	if err != nil {
+		return nil, nil, err
+	}
+	return db, func() { _ = db.Close() }, nil
+}
+
+func buildCompanyStore(cfg config.Config, db *sql.DB) (company.Store, error) {
 	switch strings.TrimSpace(cfg.StorageBackend) {
 	case "", "postgres":
-		db, err := openPostgresWithRetry(cfg.DBConnString())
-		if err != nil {
-			return nil, nil, err
+		if db == nil {
+			return nil, errors.New("database is required for postgres storage backend")
 		}
 		pgRepo := company.NewPostgresRepository(db)
 		if cfg.DBAutoMigrate {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := pgRepo.AutoMigrate(ctx); err != nil {
-				_ = db.Close()
-				return nil, nil, err
+				return nil, err
 			}
 		}
-		return pgRepo, func() { _ = db.Close() }, nil
+		return pgRepo, nil
 	case "memory":
-		return company.NewRepository(), nil, nil
+		return company.NewRepository(), nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported STORAGE_BACKEND: %s", cfg.StorageBackend)
+		return nil, fmt.Errorf("unsupported STORAGE_BACKEND: %s", cfg.StorageBackend)
 	}
+}
+
+func buildLocalUserStore(cfg config.Config, db *sql.DB) (auth.LocalUserStore, error) {
+	if strings.TrimSpace(cfg.AuthMode) != auth.ModeLocal {
+		return nil, nil
+	}
+
+	if db != nil {
+		store := auth.NewPostgresLocalUserStore(db)
+		if cfg.DBAutoMigrate {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := store.AutoMigrate(ctx); err != nil {
+				return nil, err
+			}
+		}
+		return store, nil
+	}
+
+	store := auth.NewInMemoryLocalUserStore()
+	return store, nil
 }
 
 func openPostgresWithRetry(connString string) (*sql.DB, error) {

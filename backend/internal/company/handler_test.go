@@ -191,6 +191,45 @@ func TestMeEndpointWithProxyHeaderMode(t *testing.T) {
 	}
 }
 
+func TestLocalAuthRegisterLoginAndMe(t *testing.T) {
+	repo := NewRepository()
+	localStore := auth.NewInMemoryLocalUserStore()
+	authProvider, _ := auth.NewProvider(auth.Config{
+		Mode:              auth.ModeLocal,
+		LocalUserStore:    localStore,
+		SessionSecret:     "test-secret",
+		AllowRegistration: true,
+	})
+	h := NewHandler(repo, authProvider)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	registerBody, _ := json.Marshal(map[string]string{
+		"id":       "alice",
+		"password": "password123",
+		"name":     "Alice",
+	})
+	registerReq := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(registerBody))
+	registerRec := httptest.NewRecorder()
+	mux.ServeHTTP(registerRec, registerReq)
+	if registerRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 got %d", registerRec.Code)
+	}
+
+	cookies := registerRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatalf("expected auth cookie")
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/me", nil)
+	meReq.AddCookie(cookies[0])
+	meRec := httptest.NewRecorder()
+	mux.ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", meRec.Code)
+	}
+}
+
 func TestCompaniesAreScopedByUserHeader(t *testing.T) {
 	repo := NewRepository()
 	authProvider, _ := auth.NewProvider(auth.Config{
