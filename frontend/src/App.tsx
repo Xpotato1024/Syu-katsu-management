@@ -1,5 +1,5 @@
-import { FormEvent, Fragment, useEffect, useMemo, useState } from 'react'
-import './App.css'
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react"
+import "./App.css"
 
 type SelectionStep = {
   id: string
@@ -35,33 +35,61 @@ type AuthUser = {
   provider: string
 }
 
-type ViewKey = 'companies' | 'timeline'
+type ViewKey = "companies" | "timeline" | "agenda"
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api'
-const logoutURL = import.meta.env.VITE_LOGOUT_URL ?? ''
-const companyStatusOptions = ['未着手', '選考中', '内定', 'お見送り', '辞退']
-const stepKindOptions = ['エントリー', 'ES', 'Webテスト', 'GD', '面接', '面談', '説明会', 'その他']
-const stepStatusOptions = ['未着手', '予定', '実施済', '通過', '不通過', '辞退']
-const weekdayShort = ['日', '月', '火', '水', '木', '金', '土']
+type TimelineOverflowState = {
+  hasBefore: boolean
+  hasAfter: boolean
+}
 
-function newStepDraft(kind = 'エントリー'): StepDraft {
-  return { kind, title: '', status: '未着手' }
+type AgendaEvent = {
+  dayKey: string
+  companyID: string
+  companyName: string
+  companyStatus: string
+  stepID: string
+  stepLabel: string
+  stepStatus: string
+}
+
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api"
+const logoutURL = import.meta.env.VITE_LOGOUT_URL ?? ""
+const companyStatusOptions = ["未着手", "選考中", "内定", "お見送り", "辞退"]
+const stepKindOptions = ["エントリー", "ES", "Webテスト", "GD", "面接", "面談", "説明会", "その他"]
+const stepStatusOptions = ["未着手", "予定", "実施済", "通過", "不通過", "辞退"]
+const weekdayShort = ["日", "月", "火", "水", "木", "金", "土"]
+
+const pendingStepStatuses = new Set(["未着手", "予定"])
+const completedStepStatuses = new Set(["実施済", "通過"])
+const stoppedStepStatuses = new Set(["不通過", "辞退"])
+
+function newStepDraft(kind = "エントリー"): StepDraft {
+  return { kind, title: "", status: "未着手" }
 }
 
 function parseViewFromHash(hash: string): ViewKey {
-  const normalized = hash.replace(/^#\/?/, '')
-  if (normalized === 'timeline') return 'timeline'
-  return 'companies'
+  const normalized = hash.replace(/^#\/?/, "")
+  if (normalized === "timeline") return "timeline"
+  if (normalized === "agenda") return "agenda"
+  return "companies"
 }
 
 function viewHash(view: ViewKey): string {
-  return view === 'timeline' ? '#/timeline' : '#/companies'
+  if (view === "timeline") return "#/timeline"
+  if (view === "agenda") return "#/agenda"
+  return "#/companies"
+}
+
+function viewLabel(view: ViewKey): string {
+  if (view === "timeline") return "企業別カレンダー"
+  if (view === "agenda") return "統合予定"
+  return "企業管理"
 }
 
 function toDateInputValue(value?: string): string {
-  if (!value) return ''
+  if (!value) return ""
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
+  if (Number.isNaN(d.getTime())) return ""
   return d.toISOString().slice(0, 10)
 }
 
@@ -84,32 +112,61 @@ function buildMonthDays(base: Date): Date[] {
   return days
 }
 
+function stepLabel(step: SelectionStep): string {
+  return step.title || step.kind
+}
+
+function resolveCurrentStepIndex(steps: SelectionStep[]): number {
+  if (steps.length === 0) return -1
+
+  const firstPending = steps.findIndex((step) => pendingStepStatuses.has(step.status))
+  if (firstPending >= 0) return firstPending
+
+  const firstStopped = steps.findIndex((step) => stoppedStepStatuses.has(step.status))
+  if (firstStopped >= 0) return firstStopped
+
+  return steps.length - 1
+}
+
+function stepVisualState(status: string): "pending" | "done" | "stopped" {
+  if (completedStepStatuses.has(status)) return "done"
+  if (stoppedStepStatuses.has(status)) return "stopped"
+  return "pending"
+}
+
+function formatDayLabel(dayKey: string): string {
+  const day = new Date(`${dayKey}T00:00:00`)
+  return `${day.getMonth() + 1}/${day.getDate()}（${weekdayShort[day.getDay()]}）`
+}
+
 export function App() {
   const [companies, setCompanies] = useState<Company[]>([])
-  const [nameInput, setNameInput] = useState('')
+  const [nameInput, setNameInput] = useState("")
   const [newCompanyStatus, setNewCompanyStatus] = useState(companyStatusOptions[0])
   const [newSteps, setNewSteps] = useState<StepDraft[]>([newStepDraft()])
   const [stepDraftByCompany, setStepDraftByCompany] = useState<Record<string, StepDraft>>({})
   const [stepEdits, setStepEdits] = useState<Record<string, StepEdit>>({})
-  const [filterName, setFilterName] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [expandedCompanyIDs, setExpandedCompanyIDs] = useState<Record<string, boolean>>({})
+  const [filterName, setFilterName] = useState("")
+  const [filterStatus, setFilterStatus] = useState("")
+  const [calendarCompanyFilter, setCalendarCompanyFilter] = useState("")
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [savingStepID, setSavingStepID] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [savingStepID, setSavingStepID] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
   const [viewer, setViewer] = useState<AuthUser | null>(null)
-  const [viewerError, setViewerError] = useState('')
+  const [viewerError, setViewerError] = useState("")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>(() => parseViewFromHash(window.location.hash))
   const [timelineMonth, setTimelineMonth] = useState<Date>(() => startOfMonth())
 
   async function loadViewer() {
-    setViewerError('')
+    setViewerError("")
     try {
       const response = await fetch(`${apiBase}/me`)
       if (response.status === 401) {
         setViewer(null)
-        setViewerError('未ログインです。Autheliaのログイン状態を確認してください。')
+        setViewerError("未ログインです。Autheliaのログイン状態を確認してください。")
         return
       }
       if (!response.ok) throw new Error(`failed to load user: ${response.status}`)
@@ -117,23 +174,23 @@ export function App() {
       setViewer(data)
     } catch (_error) {
       setViewer(null)
-      setViewerError('アカウント情報の取得に失敗しました。')
+      setViewerError("アカウント情報の取得に失敗しました。")
     }
   }
 
   async function loadCompanies(nameQuery = filterName, status = filterStatus) {
     const params = new URLSearchParams()
-    if (nameQuery.trim()) params.set('q', nameQuery.trim())
-    if (status) params.set('status', status)
+    if (nameQuery.trim()) params.set("q", nameQuery.trim())
+    if (status) params.set("status", status)
 
     const url = params.toString() ? `${apiBase}/companies?${params.toString()}` : `${apiBase}/companies`
     setLoading(true)
-    setErrorMessage('')
+    setErrorMessage("")
     try {
       const response = await fetch(url)
       if (response.status === 401) {
         setCompanies([])
-        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
         return
       }
       if (!response.ok) throw new Error(`failed to load companies: ${response.status}`)
@@ -154,7 +211,7 @@ export function App() {
         return next
       })
     } catch (_error) {
-      setErrorMessage('企業一覧の取得に失敗しました。')
+      setErrorMessage("企業一覧の取得に失敗しました。")
     } finally {
       setLoading(false)
     }
@@ -165,38 +222,38 @@ export function App() {
     if (!nameInput.trim()) return
 
     setSubmitting(true)
-    setErrorMessage('')
+    setErrorMessage("")
     try {
       const response = await fetch(`${apiBase}/companies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: nameInput,
-          mypageLink: '',
-          mypageId: '',
+          mypageLink: "",
+          mypageId: "",
           selectionStatus: newCompanyStatus,
           selectionSteps: newSteps.map((step) => ({
             kind: step.kind,
             title: step.title,
             status: step.status
           })),
-          esContent: '',
-          researchContent: ''
+          esContent: "",
+          researchContent: ""
         })
       })
       if (response.status === 401) {
-        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
         return
       }
       if (!response.ok) throw new Error(`failed to create company: ${response.status}`)
     } catch (_error) {
-      setErrorMessage('企業の追加に失敗しました。')
+      setErrorMessage("企業の追加に失敗しました。")
       return
     } finally {
       setSubmitting(false)
     }
 
-    setNameInput('')
+    setNameInput("")
     setNewCompanyStatus(companyStatusOptions[0])
     setNewSteps([newStepDraft()])
     await loadCompanies()
@@ -208,18 +265,18 @@ export function App() {
   }
 
   async function onClearFilter() {
-    setFilterName('')
-    setFilterStatus('')
-    await loadCompanies('', '')
+    setFilterName("")
+    setFilterStatus("")
+    await loadCompanies("", "")
   }
 
   async function onAddStepToCompany(companyID: string) {
-    const draft = stepDraftByCompany[companyID] ?? newStepDraft('面接')
-    setErrorMessage('')
+    const draft = stepDraftByCompany[companyID] ?? newStepDraft("面接")
+    setErrorMessage("")
     try {
       const response = await fetch(`${apiBase}/companies/${companyID}/steps`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: draft.kind,
           title: draft.title,
@@ -227,14 +284,14 @@ export function App() {
         })
       })
       if (response.status === 401) {
-        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
         return
       }
       if (!response.ok) throw new Error(`failed to add step: ${response.status}`)
-      setStepDraftByCompany((prev) => ({ ...prev, [companyID]: newStepDraft('面接') }))
+      setStepDraftByCompany((prev) => ({ ...prev, [companyID]: newStepDraft("面接") }))
       await loadCompanies()
     } catch (_error) {
-      setErrorMessage('選考ステップの追加に失敗しました。')
+      setErrorMessage("選考ステップの追加に失敗しました。")
     }
   }
 
@@ -243,29 +300,28 @@ export function App() {
     if (!edit) return
 
     setSavingStepID(stepID)
-    setErrorMessage('')
+    setErrorMessage("")
     try {
       const response = await fetch(`${apiBase}/companies/${companyID}/steps/${stepID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: edit.status,
           scheduledAt: edit.scheduledAt
         })
       })
       if (response.status === 401) {
-        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
         return
       }
       if (!response.ok) throw new Error(`failed to update step: ${response.status}`)
       await loadCompanies()
     } catch (_error) {
-      setErrorMessage('選考ステップの更新に失敗しました。')
+      setErrorMessage("選考ステップの更新に失敗しました。")
     } finally {
-      setSavingStepID('')
+      setSavingStepID("")
     }
   }
-
   function navigateTo(view: ViewKey) {
     setIsMenuOpen(false)
     setActiveView(view)
@@ -273,6 +329,10 @@ export function App() {
     if (window.location.hash !== hash) {
       window.location.hash = hash
     }
+  }
+
+  function toggleCompanyDetail(companyID: string) {
+    setExpandedCompanyIDs((prev) => ({ ...prev, [companyID]: !prev[companyID] }))
   }
 
   useEffect(() => {
@@ -286,25 +346,51 @@ export function App() {
       setActiveView(parseViewFromHash(window.location.hash))
     }
     onHashChange()
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
+    window.addEventListener("hashchange", onHashChange)
+    return () => window.removeEventListener("hashchange", onHashChange)
   }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setIsMenuOpen(false)
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  useEffect(() => {
+    setExpandedCompanyIDs((prev) => {
+      const next: Record<string, boolean> = {}
+      for (const company of companies) {
+        if (prev[company.id]) next[company.id] = true
+      }
+      return next
+    })
+  }, [companies])
+
   const timelineDays = useMemo(() => buildMonthDays(timelineMonth), [timelineMonth])
+  const timelineMonthStartKey = useMemo(() => {
+    if (timelineDays.length === 0) return ""
+    return toDateInputValue(timelineDays[0].toISOString())
+  }, [timelineDays])
+  const timelineMonthEndKey = useMemo(() => {
+    if (timelineDays.length === 0) return ""
+    return toDateInputValue(timelineDays[timelineDays.length - 1].toISOString())
+  }, [timelineDays])
+
   const timelineRows = useMemo(
-    () => [...companies].sort((a, b) => a.name.localeCompare(b.name, 'ja')),
+    () => [...companies].sort((a, b) => a.name.localeCompare(b.name, "ja")),
     [companies]
   )
+
+  const calendarFilteredCompanies = useMemo(() => {
+    const query = calendarCompanyFilter.trim().toLowerCase()
+    if (!query) return timelineRows
+    return timelineRows.filter((company) => company.name.toLowerCase().includes(query))
+  }, [timelineRows, calendarCompanyFilter])
+
   const stepsByCompanyDay = useMemo(() => {
     const map: Record<string, Record<string, SelectionStep[]>> = {}
     for (const company of companies) {
@@ -320,9 +406,74 @@ export function App() {
     }
     return map
   }, [companies])
+
+  const scheduleRangeByCompany = useMemo(() => {
+    const map: Record<string, TimelineOverflowState> = {}
+    for (const company of companies) {
+      const dayKeys = (company.selectionSteps || [])
+        .map((step) => toDateInputValue(step.scheduledAt))
+        .filter((value) => value !== "")
+
+      map[company.id] = {
+        hasBefore: timelineMonthStartKey ? dayKeys.some((dayKey) => dayKey < timelineMonthStartKey) : false,
+        hasAfter: timelineMonthEndKey ? dayKeys.some((dayKey) => dayKey > timelineMonthEndKey) : false
+      }
+    }
+    return map
+  }, [companies, timelineMonthStartKey, timelineMonthEndKey])
+
   const hasScheduledSteps = useMemo(() => {
     return companies.some((company) => company.selectionSteps.some((step) => !!toDateInputValue(step.scheduledAt)))
   }, [companies])
+
+  const hasScheduledStepsForFilteredCompanies = useMemo(() => {
+    return calendarFilteredCompanies.some((company) =>
+      company.selectionSteps.some((step) => !!toDateInputValue(step.scheduledAt))
+    )
+  }, [calendarFilteredCompanies])
+
+  const agendaEvents = useMemo(() => {
+    if (!timelineMonthStartKey || !timelineMonthEndKey) return []
+
+    const events: AgendaEvent[] = []
+    for (const company of calendarFilteredCompanies) {
+      for (const step of company.selectionSteps || []) {
+        const dayKey = toDateInputValue(step.scheduledAt)
+        if (!dayKey) continue
+        if (dayKey < timelineMonthStartKey || dayKey > timelineMonthEndKey) continue
+
+        events.push({
+          dayKey,
+          companyID: company.id,
+          companyName: company.name,
+          companyStatus: company.selectionStatus,
+          stepID: step.id,
+          stepLabel: stepLabel(step),
+          stepStatus: step.status
+        })
+      }
+    }
+
+    events.sort((a, b) => {
+      if (a.dayKey !== b.dayKey) return a.dayKey.localeCompare(b.dayKey)
+      const companyCompare = a.companyName.localeCompare(b.companyName, "ja")
+      if (companyCompare !== 0) return companyCompare
+      return a.stepLabel.localeCompare(b.stepLabel, "ja")
+    })
+
+    return events
+  }, [calendarFilteredCompanies, timelineMonthStartKey, timelineMonthEndKey])
+
+  const agendaGroups = useMemo(() => {
+    const groups = new Map<string, AgendaEvent[]>()
+    for (const event of agendaEvents) {
+      if (!groups.has(event.dayKey)) {
+        groups.set(event.dayKey, [])
+      }
+      groups.get(event.dayKey)?.push(event)
+    }
+    return Array.from(groups.entries()).map(([dayKey, events]) => ({ dayKey, events }))
+  }, [agendaEvents])
 
   return (
     <main className="app-shell">
@@ -344,27 +495,34 @@ export function App() {
           <h1>就活フロー管理</h1>
         </div>
         <div className="topbar-meta">
-          <span className="view-chip">{activeView === 'companies' ? '企業管理' : '選考カレンダー'}</span>
-          <span className="user-chip">{viewer?.name || viewer?.id || 'ゲスト'}</span>
+          <span className="view-chip">{viewLabel(activeView)}</span>
+          <span className="user-chip">{viewer?.name || viewer?.id || "ゲスト"}</span>
         </div>
       </header>
 
-      <aside id="global-menu" className={isMenuOpen ? 'drawer open' : 'drawer'}>
+      <aside id="global-menu" className={isMenuOpen ? "drawer open" : "drawer"}>
         <p className="drawer-title">メニュー</p>
         <div className="drawer-group">
           <button
             type="button"
-            className={activeView === 'companies' ? 'drawer-item active' : 'drawer-item'}
-            onClick={() => navigateTo('companies')}
+            className={activeView === "companies" ? "drawer-item active" : "drawer-item"}
+            onClick={() => navigateTo("companies")}
           >
             企業管理
           </button>
           <button
             type="button"
-            className={activeView === 'timeline' ? 'drawer-item active' : 'drawer-item'}
-            onClick={() => navigateTo('timeline')}
+            className={activeView === "timeline" ? "drawer-item active" : "drawer-item"}
+            onClick={() => navigateTo("timeline")}
           >
-            選考カレンダー
+            企業別カレンダー
+          </button>
+          <button
+            type="button"
+            className={activeView === "agenda" ? "drawer-item active" : "drawer-item"}
+            onClick={() => navigateTo("agenda")}
+          >
+            統合予定
           </button>
         </div>
         <div className="drawer-divider" />
@@ -378,7 +536,7 @@ export function App() {
               <small>provider: {viewer.provider}</small>
             </div>
           ) : (
-            <p className="muted">{viewerError || 'アカウント情報を読み込み中...'}</p>
+            <p className="muted">{viewerError || "アカウント情報を読み込み中..."}</p>
           )}
           <button
             type="button"
@@ -400,15 +558,15 @@ export function App() {
       </aside>
       <button
         type="button"
-        className={isMenuOpen ? 'drawer-backdrop show' : 'drawer-backdrop'}
+        className={isMenuOpen ? "drawer-backdrop show" : "drawer-backdrop"}
         aria-label="メニューを閉じる"
         onClick={() => setIsMenuOpen(false)}
       />
 
-      {activeView === 'companies' && (
+      {activeView === "companies" && (
         <>
           <section className="hero">
-            <p className="hero-sub">企業ごとの選考ステップを登録し、日程と進捗をあとから更新できます。</p>
+            <p className="hero-sub">企業カードは初期表示でフローのみ。必要な企業だけ詳細を展開して編集できます。</p>
           </section>
 
           <section className="panel">
@@ -495,14 +653,18 @@ export function App() {
                     </button>
                   </div>
                 ))}
-                <button type="button" className="button-secondary" onClick={() => setNewSteps((prev) => [...prev, newStepDraft('面接')])}>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setNewSteps((prev) => [...prev, newStepDraft("面接")])}
+                >
                   ステップ追加
                 </button>
               </div>
 
               <div className="actions">
                 <button type="submit" disabled={submitting}>
-                  {submitting ? '追加中...' : '企業を追加'}
+                  {submitting ? "追加中..." : "企業を追加"}
                 </button>
               </div>
             </form>
@@ -513,113 +675,168 @@ export function App() {
 
           <section className="company-grid">
             {companies.map((company) => {
-              const inlineDraft = stepDraftByCompany[company.id] ?? newStepDraft('面接')
+              const steps = company.selectionSteps || []
+              const currentStepIndex = resolveCurrentStepIndex(steps)
+              const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null
+              const isExpanded = !!expandedCompanyIDs[company.id]
+              const inlineDraft = stepDraftByCompany[company.id] ?? newStepDraft("面接")
+
               return (
                 <article key={company.id} className="company-card">
                   <header className="company-head">
-                    <h3>{company.name}</h3>
-                    <span className="badge">{company.selectionStatus || '未設定'}</span>
-                  </header>
-                  <p className="muted">{company.selectionFlow || '選考フロー未設定'}</p>
-
-                  <div className="step-list">
-                    {(company.selectionSteps || []).map((step) => {
-                      const edit = stepEdits[step.id] ?? {
-                        status: step.status || stepStatusOptions[0],
-                        scheduledAt: toDateInputValue(step.scheduledAt)
-                      }
-                      return (
-                        <div key={step.id} className="step-item">
-                          <div className="step-label">
-                            <span className="kind">{step.kind}</span>
-                            <strong>{step.title || step.kind}</strong>
-                          </div>
-                          <div className="row step-row">
-                            <select
-                              value={edit.status}
-                              onChange={(e) =>
-                                setStepEdits((prev) => ({
-                                  ...prev,
-                                  [step.id]: { ...edit, status: e.target.value }
-                                }))
-                              }
-                            >
-                              {stepStatusOptions.map((status) => (
-                                <option key={status} value={status}>
-                                  {status}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              type="date"
-                              value={edit.scheduledAt}
-                              onChange={(e) =>
-                                setStepEdits((prev) => ({
-                                  ...prev,
-                                  [step.id]: { ...edit, scheduledAt: e.target.value }
-                                }))
-                              }
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void onSaveStep(company.id, step.id)}
-                              disabled={savingStepID === step.id}
-                            >
-                              {savingStepID === step.id ? '保存中...' : '保存'}
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  <div className="inline-step-add">
-                    <div className="row">
-                      <select
-                        value={inlineDraft.kind}
-                        onChange={(e) =>
-                          setStepDraftByCompany((prev) => ({
-                            ...prev,
-                            [company.id]: { ...inlineDraft, kind: e.target.value }
-                          }))
-                        }
-                      >
-                        {stepKindOptions.map((kind) => (
-                          <option key={kind} value={kind}>
-                            {kind}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        value={inlineDraft.title}
-                        onChange={(e) =>
-                          setStepDraftByCompany((prev) => ({
-                            ...prev,
-                            [company.id]: { ...inlineDraft, title: e.target.value }
-                          }))
-                        }
-                        placeholder="追加ステップ名（任意）"
-                      />
-                      <select
-                        value={inlineDraft.status}
-                        onChange={(e) =>
-                          setStepDraftByCompany((prev) => ({
-                            ...prev,
-                            [company.id]: { ...inlineDraft, status: e.target.value }
-                          }))
-                        }
-                      >
-                        {stepStatusOptions.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="company-heading">
+                      <h3>{company.name}</h3>
+                      <span className="badge">{company.selectionStatus || "未設定"}</span>
                     </div>
-                    <button type="button" className="button-secondary" onClick={() => void onAddStepToCompany(company.id)}>
-                      この企業にステップ追加
+                    <button
+                      type="button"
+                      className="button-secondary company-toggle"
+                      onClick={() => toggleCompanyDetail(company.id)}
+                    >
+                      {isExpanded ? "詳細を閉じる" : "詳細を開く"}
                     </button>
+                  </header>
+
+                  <div className="flow-summary">
+                    <p className="flow-current">
+                      {currentStep
+                        ? `現在: ${stepLabel(currentStep)}（${currentStep.status}）`
+                        : `現在: ${company.selectionStatus || "未設定"}`}
+                    </p>
+                    <div className="flow-strip">
+                      {steps.length === 0 ? (
+                        <span className="flow-empty">選考フロー未設定</span>
+                      ) : (
+                        steps.map((step, index) => {
+                          const stateClass = stepVisualState(step.status)
+                          const className =
+                            index === currentStepIndex
+                              ? `flow-node ${stateClass} current`
+                              : `flow-node ${stateClass}`
+                          return (
+                            <Fragment key={step.id}>
+                              <div className={className}>
+                                <strong>{stepLabel(step)}</strong>
+                                <small>{step.status}</small>
+                              </div>
+                              {index < steps.length - 1 && <span className="flow-arrow">→</span>}
+                            </Fragment>
+                          )
+                        })
+                      )}
+                    </div>
                   </div>
+
+                  {isExpanded && (
+                    <div className="company-detail">
+                      <p className="muted detail-caption">
+                        ステップ詳細を編集できます。フロー: {company.selectionFlow || "未設定"}
+                      </p>
+
+                      <div className="step-list">
+                        {steps.map((step) => {
+                          const edit = stepEdits[step.id] ?? {
+                            status: step.status || stepStatusOptions[0],
+                            scheduledAt: toDateInputValue(step.scheduledAt)
+                          }
+                          return (
+                            <div key={step.id} className="step-item">
+                              <div className="step-label">
+                                <span className="kind">{step.kind}</span>
+                                <strong>{stepLabel(step)}</strong>
+                              </div>
+                              <div className="row step-row">
+                                <select
+                                  value={edit.status}
+                                  onChange={(e) =>
+                                    setStepEdits((prev) => ({
+                                      ...prev,
+                                      [step.id]: { ...edit, status: e.target.value }
+                                    }))
+                                  }
+                                >
+                                  {stepStatusOptions.map((status) => (
+                                    <option key={status} value={status}>
+                                      {status}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="date"
+                                  value={edit.scheduledAt}
+                                  onChange={(e) =>
+                                    setStepEdits((prev) => ({
+                                      ...prev,
+                                      [step.id]: { ...edit, scheduledAt: e.target.value }
+                                    }))
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => void onSaveStep(company.id, step.id)}
+                                  disabled={savingStepID === step.id}
+                                >
+                                  {savingStepID === step.id ? "保存中..." : "保存"}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="inline-step-add">
+                        <div className="row">
+                          <select
+                            value={inlineDraft.kind}
+                            onChange={(e) =>
+                              setStepDraftByCompany((prev) => ({
+                                ...prev,
+                                [company.id]: { ...inlineDraft, kind: e.target.value }
+                              }))
+                            }
+                          >
+                            {stepKindOptions.map((kind) => (
+                              <option key={kind} value={kind}>
+                                {kind}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            value={inlineDraft.title}
+                            onChange={(e) =>
+                              setStepDraftByCompany((prev) => ({
+                                ...prev,
+                                [company.id]: { ...inlineDraft, title: e.target.value }
+                              }))
+                            }
+                            placeholder="追加ステップ名（任意）"
+                          />
+                          <select
+                            value={inlineDraft.status}
+                            onChange={(e) =>
+                              setStepDraftByCompany((prev) => ({
+                                ...prev,
+                                [company.id]: { ...inlineDraft, status: e.target.value }
+                              }))
+                            }
+                          >
+                            {stepStatusOptions.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => void onAddStepToCompany(company.id)}
+                        >
+                          この企業にステップ追加
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </article>
               )
             })}
@@ -628,12 +845,11 @@ export function App() {
           {!loading && companies.length === 0 && <p className="muted">該当する企業はありません。</p>}
         </>
       )}
-
-      {activeView === 'timeline' && (
+      {activeView === "timeline" && (
         <>
           <section className="panel timeline-toolbar">
-            <h2>選考カレンダー</h2>
-            <p className="muted">縦軸に企業、横軸に日付を配置しています。日程は企業管理画面で編集できます。</p>
+            <h2>企業別カレンダー</h2>
+            <p className="muted">表示範囲外の予定がある企業は、行の左右端を強調表示します。</p>
             <div className="row">
               <button type="button" className="button-secondary" onClick={() => setTimelineMonth((prev) => shiftMonth(prev, -1))}>
                 前月
@@ -646,6 +862,17 @@ export function App() {
                 今月へ
               </button>
             </div>
+            <div className="row">
+              <input
+                value={calendarCompanyFilter}
+                onChange={(e) => setCalendarCompanyFilter(e.target.value)}
+                placeholder="企業名でカレンダー表示を絞り込み"
+              />
+              <button type="button" className="button-secondary" onClick={() => setCalendarCompanyFilter("")}>
+                絞り込み解除
+              </button>
+            </div>
+            <p className="muted timeline-meta">表示企業: {calendarFilteredCompanies.length} / 全{companies.length}</p>
           </section>
 
           <section className="panel timeline-panel">
@@ -653,6 +880,12 @@ export function App() {
               <p className="muted">
                 日程が設定された選考ステップがありません。企業管理画面でステップの日程を入力すると、ここに表示されます。
               </p>
+            )}
+            {hasScheduledSteps && !hasScheduledStepsForFilteredCompanies && (
+              <p className="muted">絞り込み条件に一致する日程付きステップがありません。</p>
+            )}
+            {calendarFilteredCompanies.length === 0 && (
+              <p className="muted">絞り込み条件に一致する企業がありません。</p>
             )}
             <div className="timeline-scroll">
               <div
@@ -663,36 +896,128 @@ export function App() {
                 {timelineDays.map((day) => {
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6
                   return (
-                    <div key={`head-${day.toISOString()}`} className={isWeekend ? 'timeline-header weekend' : 'timeline-header'}>
+                    <div key={`head-${day.toISOString()}`} className={isWeekend ? "timeline-header weekend" : "timeline-header"}>
                       <div>{day.getDate()}</div>
                       <small>{weekdayShort[day.getDay()]}</small>
                     </div>
                   )
                 })}
 
-                {timelineRows.map((company) => (
-                  <Fragment key={`row-${company.id}`}>
-                    <div className="timeline-company sticky-col">
-                      <strong>{company.name}</strong>
-                      <small>{company.selectionStatus}</small>
-                    </div>
-                    {timelineDays.map((day) => {
-                      const dayKey = toDateInputValue(day.toISOString())
-                      const entries = stepsByCompanyDay[company.id]?.[dayKey] ?? []
-                      return (
-                        <div key={`${company.id}-${dayKey}`} className="timeline-cell">
-                          {entries.map((step) => (
-                            <div key={step.id} className="timeline-event">
-                              <span>{step.title || step.kind}</span>
-                              <small>{step.status}</small>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })}
-                  </Fragment>
-                ))}
+                {calendarFilteredCompanies.map((company) => {
+                  const overflow = scheduleRangeByCompany[company.id] ?? { hasBefore: false, hasAfter: false }
+                  const companyClassName = [
+                    "timeline-company",
+                    "sticky-col",
+                    overflow.hasBefore ? "has-before" : "",
+                    overflow.hasAfter ? "has-after" : ""
+                  ]
+                    .filter((value) => value !== "")
+                    .join(" ")
+
+                  return (
+                    <Fragment key={`row-${company.id}`}>
+                      <div className={companyClassName}>
+                        <strong>{company.name}</strong>
+                        <small>{company.selectionStatus}</small>
+                        {(overflow.hasBefore || overflow.hasAfter) && (
+                          <span className="timeline-edge-note">
+                            {overflow.hasBefore ? "← 前月に予定あり" : ""}
+                            {overflow.hasBefore && overflow.hasAfter ? " / " : ""}
+                            {overflow.hasAfter ? "翌月に予定あり →" : ""}
+                          </span>
+                        )}
+                      </div>
+                      {timelineDays.map((day, index) => {
+                        const dayKey = toDateInputValue(day.toISOString())
+                        const entries = stepsByCompanyDay[company.id]?.[dayKey] ?? []
+                        const cellClassName = [
+                          "timeline-cell",
+                          index === 0 && overflow.hasBefore ? "overflow-left" : "",
+                          index === timelineDays.length - 1 && overflow.hasAfter ? "overflow-right" : ""
+                        ]
+                          .filter((value) => value !== "")
+                          .join(" ")
+
+                        return (
+                          <div key={`${company.id}-${dayKey}`} className={cellClassName}>
+                            {entries.map((step) => (
+                              <div key={step.id} className="timeline-event">
+                                <span>{stepLabel(step)}</span>
+                                <small>{step.status}</small>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </Fragment>
+                  )
+                })}
               </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeView === "agenda" && (
+        <>
+          <section className="panel timeline-toolbar">
+            <h2>統合予定</h2>
+            <p className="muted">企業別ではなく、ユーザー全体の予定を日付ごとにまとめて表示します。</p>
+            <div className="row">
+              <button type="button" className="button-secondary" onClick={() => setTimelineMonth((prev) => shiftMonth(prev, -1))}>
+                前月
+              </button>
+              <div className="month-badge">{`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}</div>
+              <button type="button" className="button-secondary" onClick={() => setTimelineMonth((prev) => shiftMonth(prev, 1))}>
+                次月
+              </button>
+              <button type="button" onClick={() => setTimelineMonth(startOfMonth())}>
+                今月へ
+              </button>
+            </div>
+            <div className="row">
+              <input
+                value={calendarCompanyFilter}
+                onChange={(e) => setCalendarCompanyFilter(e.target.value)}
+                placeholder="企業名で予定を絞り込み"
+              />
+              <button type="button" className="button-secondary" onClick={() => setCalendarCompanyFilter("")}>
+                絞り込み解除
+              </button>
+            </div>
+            <p className="muted timeline-meta">
+              当月の予定件数: {agendaEvents.length}（表示企業 {calendarFilteredCompanies.length} / 全{companies.length}）
+            </p>
+          </section>
+
+          <section className="panel agenda-panel">
+            {agendaEvents.length === 0 && (
+              <p className="muted">絞り込み条件に一致する予定がありません。企業管理で日程を追加して確認してください。</p>
+            )}
+
+            <div className="agenda-days">
+              {agendaGroups.map((group) => (
+                <article key={`agenda-${group.dayKey}`} className="agenda-day">
+                  <header className="agenda-day-head">
+                    <strong>{formatDayLabel(group.dayKey)}</strong>
+                    <span>{group.events.length}件</span>
+                  </header>
+                  <div className="agenda-list">
+                    {group.events.map((event) => (
+                      <div key={`${event.companyID}-${event.stepID}`} className="agenda-item">
+                        <div className="agenda-main">
+                          <span className="agenda-company">{event.companyName}</span>
+                          <span className="agenda-step">{event.stepLabel}</span>
+                        </div>
+                        <div className="agenda-side">
+                          <span className="agenda-company-status">{event.companyStatus || "未設定"}</span>
+                          <span className="agenda-step-status">{event.stepStatus}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
         </>
