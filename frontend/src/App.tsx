@@ -7,7 +7,7 @@ type Company = {
   mypageLink: string
 }
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const selectionStatusOptions = ['未着手', '進行中', '完了', '不合格', '辞退']
 
 export function App() {

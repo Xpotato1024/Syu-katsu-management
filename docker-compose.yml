@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${DB_USER:-syukatsu_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-syukatsu_password}
     ports:
-      - "5432:5432"
+      - "${DB_HOST_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -16,7 +16,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8080:8080"
+      - "${BACKEND_HOST_PORT:-18080}:8080"
     depends_on:
       - db
 
@@ -26,7 +26,7 @@ services:
     env_file:
       - .env
     ports:
-      - "5173:5173"
+      - "${FRONTEND_HOST_PORT:-15173}:5173"
     depends_on:
       - backend
 

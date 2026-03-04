@@ -4,6 +4,7 @@
 - `backend/`: Go API（標準ライブラリ）
 - `frontend/`: React + TypeScript + Vite のひな形
 - `docker-compose.yml`: frontend / backend / db のローカル起動構成
+- `.vscode/tasks.json`: Docker Compose の起動/停止/ログ確認タスク
 
 ## バックエンド（現状）
 - `GET /health`
@@ -20,4 +21,10 @@
 - 企業追加フォーム（企業名、選考状況）
 - 企業一覧表示
 - 企業名検索と選考状況フィルタ
-- APIベースURLは `VITE_API_BASE_URL` で設定
+- APIベースURLは `VITE_API_BASE_URL`（既定 `/api`）で設定
+- 開発時はVite proxyで `/api` を `backend:8080` へ中継
+
+## 開発用ポート（既定）
+- Frontend: `15173`
+- Backend: `18080`
+- DB: `15432`
