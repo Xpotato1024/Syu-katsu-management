@@ -347,12 +347,24 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  align-items: flex-start;
+}
+
+.company-heading {
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .company-head h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.company-toggle {
+  white-space: nowrap;
+  padding: 8px 12px;
 }
 
 .badge {
@@ -363,6 +375,91 @@ button:disabled {
   color: #0b6570;
   border: 1px solid #b8e4e9;
   white-space: nowrap;
+}
+
+.flow-summary {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.flow-current {
+  margin: 0;
+  color: #2a4a67;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.flow-strip {
+  border: 1px solid #d9e6f2;
+  border-radius: 10px;
+  background: #f9fbff;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.flow-empty {
+  color: #6a7a8f;
+  font-size: 13px;
+}
+
+.flow-arrow {
+  color: #8da2b8;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.flow-node {
+  min-width: 120px;
+  border-radius: 10px;
+  border: 1px solid #d4dfeb;
+  background: #fff;
+  padding: 6px 8px;
+  display: grid;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.flow-node strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.flow-node small {
+  color: #5e7088;
+  font-size: 11px;
+}
+
+.flow-node.pending {
+  border-color: #cddbeb;
+  background: #f7fbff;
+}
+
+.flow-node.done {
+  border-color: #95dbb4;
+  background: #e8faef;
+}
+
+.flow-node.stopped {
+  border-color: #e8b4b4;
+  background: #fff0f0;
+}
+
+.flow-node.current {
+  box-shadow: 0 0 0 2px #ffd270 inset;
+}
+
+.company-detail {
+  margin-top: 10px;
+  border-top: 1px dashed #d5deea;
+  padding-top: 10px;
+}
+
+.detail-caption {
+  font-size: 13px;
 }
 
 .step-list {
@@ -409,6 +506,10 @@ button:disabled {
 .timeline-toolbar {
   display: grid;
   gap: 10px;
+}
+
+.timeline-meta {
+  font-size: 13px;
 }
 
 .month-badge {
@@ -477,6 +578,18 @@ button:disabled {
   padding: 8px;
 }
 
+.timeline-company.has-before {
+  box-shadow: inset 4px 0 0 #f4b037;
+}
+
+.timeline-company.has-after {
+  box-shadow: inset -4px 0 0 #f4b037;
+}
+
+.timeline-company.has-before.has-after {
+  box-shadow: inset 4px 0 0 #f4b037, inset -4px 0 0 #f4b037;
+}
+
 .timeline-company strong {
   font-size: 13px;
 }
@@ -484,6 +597,12 @@ button:disabled {
 .timeline-company small {
   color: #6a7a8d;
   font-size: 11px;
+}
+
+.timeline-edge-note {
+  color: #9a6200;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .timeline-cell {
@@ -494,6 +613,35 @@ button:disabled {
   display: grid;
   gap: 4px;
   align-content: start;
+}
+
+.timeline-cell.overflow-left,
+.timeline-cell.overflow-right {
+  position: relative;
+}
+
+.timeline-cell.overflow-left::before {
+  content: "◀";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 14px;
+  display: grid;
+  place-items: center;
+  color: #8f5600;
+  font-size: 10px;
+  background: linear-gradient(90deg, #ffd986 0%, rgba(255, 233, 179, 0.65) 55%, rgba(255, 255, 255, 0) 100%);
+}
+
+.timeline-cell.overflow-right::after {
+  content: "▶";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 14px;
+  display: grid;
+  place-items: center;
+  color: #8f5600;
+  font-size: 10px;
+  background: linear-gradient(270deg, #ffd986 0%, rgba(255, 233, 179, 0.65) 55%, rgba(255, 255, 255, 0) 100%);
 }
 
 .timeline-event {
@@ -514,6 +662,87 @@ button:disabled {
 .timeline-event small {
   font-size: 10px;
   color: #28717a;
+}
+
+.agenda-panel {
+  overflow: hidden;
+}
+
+.agenda-days {
+  display: grid;
+  gap: 10px;
+}
+
+.agenda-day {
+  border: 1px solid #d5e3f1;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.agenda-day-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e7eef7;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f7fbff;
+}
+
+.agenda-day-head strong {
+  font-size: 14px;
+}
+
+.agenda-day-head span {
+  color: #5f7289;
+  font-size: 12px;
+}
+
+.agenda-list {
+  display: grid;
+}
+
+.agenda-item {
+  padding: 10px 12px;
+  border-top: 1px solid #edf2f8;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agenda-item:first-child {
+  border-top: 0;
+}
+
+.agenda-main {
+  display: grid;
+  gap: 2px;
+}
+
+.agenda-company {
+  font-size: 12px;
+  color: #5b6f88;
+}
+
+.agenda-step {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.agenda-side {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.agenda-company-status,
+.agenda-step-status {
+  border: 1px solid #c8dae8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: #f6fbff;
+  color: #2b5f7c;
 }
 
 @keyframes rise {
@@ -551,5 +780,30 @@ button:disabled {
 
   .company-grid {
     grid-template-columns: 1fr;
+  }
+
+  .company-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .company-toggle {
+    width: 100%;
+  }
+
+  .flow-node {
+    min-width: 108px;
+  }
+
+  .agenda-item {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .agenda-side {
+    text-align: left;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 }
