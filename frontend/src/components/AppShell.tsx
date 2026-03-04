@@ -109,6 +109,18 @@ export function AppShell({
       />
 
       {children}
+
+      <footer className="site-footer">
+        <p>Copyright (c) 2026 Xpotato1024</p>
+        <p>
+          License: <a href="https://opensource.org/license/mit/" target="_blank" rel="noreferrer">MIT</a> |{" "}
+          GitHub:{" "}
+          <a href="https://github.com/Xpotato1024/Syu-katsu-management" target="_blank" rel="noreferrer">
+            Xpotato1024/Syu-katsu-management
+          </a>
+        </p>
+        <p className="muted">免責: 本アプリの情報は就活支援目的であり、内容の正確性・完全性は保証しません。</p>
+      </footer>
     </main>
   )
 }

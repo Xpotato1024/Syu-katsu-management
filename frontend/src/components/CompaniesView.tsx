@@ -1,4 +1,6 @@
-import { Fragment, type FormEvent } from "react"
+import { Fragment, type FormEvent, useMemo, useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { newStepDraft, resolveCurrentStepIndex, stepLabel, stepVisualState } from "../utils/selection"
@@ -75,6 +77,17 @@ export function CompaniesView({
   onUpdateInlineDraft,
   onAddStepToCompany
 }: CompaniesViewProps) {
+  const [docModeByKey, setDocModeByKey] = useState<Record<string, "edit" | "view">>({})
+  const markdownPlugins = useMemo(() => [remarkGfm], [])
+
+  function docMode(companyID: string, kind: "research" | "es"): "edit" | "view" {
+    return docModeByKey[`${companyID}:${kind}`] ?? "edit"
+  }
+
+  function setDocMode(companyID: string, kind: "research" | "es", mode: "edit" | "view") {
+    setDocModeByKey((prev) => ({ ...prev, [`${companyID}:${kind}`]: mode }))
+  }
+
   return (
     <>
       <section className="hero">
@@ -248,28 +261,91 @@ export function CompaniesView({
                       企業研究ドキュメント（Markdown）
                     </label>
                     <div className="row">
-                      <button type="button" className="button-secondary" onClick={() => onApplyResearchTemplate(company.id)}>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => {
+                          if (companyEdit.researchContent.trim()) {
+                            const shouldOverwrite = window.confirm("企業研究ドキュメントをテンプレートで上書きします。続行しますか？")
+                            if (!shouldOverwrite) return
+                          }
+                          onApplyResearchTemplate(company.id)
+                          setDocMode(company.id, "research", "edit")
+                        }}
+                      >
                         企業研究テンプレート挿入
                       </button>
                     </div>
-                    <textarea
-                      id={`research-${company.id}`}
-                      className="doc-textarea"
-                      value={companyEdit.researchContent}
-                      onChange={(e) => onUpdateCompanyEdit(company.id, { researchContent: e.target.value })}
-                      placeholder="# 企業研究ノート"
-                    />
+                    <div className="doc-mode-toggle" role="tablist" aria-label="企業研究ドキュメント表示モード">
+                      <button
+                        type="button"
+                        className={docMode(company.id, "research") === "edit" ? "button-secondary active-toggle" : "button-secondary"}
+                        onClick={() => setDocMode(company.id, "research", "edit")}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className={docMode(company.id, "research") === "view" ? "button-secondary active-toggle" : "button-secondary"}
+                        onClick={() => setDocMode(company.id, "research", "view")}
+                      >
+                        View
+                      </button>
+                    </div>
+                    {docMode(company.id, "research") === "edit" ? (
+                      <textarea
+                        id={`research-${company.id}`}
+                        className="doc-textarea"
+                        value={companyEdit.researchContent}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { researchContent: e.target.value })}
+                        placeholder="# 企業研究ノート"
+                      />
+                    ) : (
+                      <div className="doc-preview">
+                        {companyEdit.researchContent.trim() ? (
+                          <ReactMarkdown remarkPlugins={markdownPlugins}>{companyEdit.researchContent}</ReactMarkdown>
+                        ) : (
+                          <p className="muted">企業研究ドキュメントが未入力です。</p>
+                        )}
+                      </div>
+                    )}
 
                     <label className="doc-label" htmlFor={`es-${company.id}`}>
                       ESドキュメント（Markdown）
                     </label>
-                    <textarea
-                      id={`es-${company.id}`}
-                      className="doc-textarea"
-                      value={companyEdit.esContent}
-                      onChange={(e) => onUpdateCompanyEdit(company.id, { esContent: e.target.value })}
-                      placeholder="# ES下書き"
-                    />
+                    <div className="doc-mode-toggle" role="tablist" aria-label="ESドキュメント表示モード">
+                      <button
+                        type="button"
+                        className={docMode(company.id, "es") === "edit" ? "button-secondary active-toggle" : "button-secondary"}
+                        onClick={() => setDocMode(company.id, "es", "edit")}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className={docMode(company.id, "es") === "view" ? "button-secondary active-toggle" : "button-secondary"}
+                        onClick={() => setDocMode(company.id, "es", "view")}
+                      >
+                        View
+                      </button>
+                    </div>
+                    {docMode(company.id, "es") === "edit" ? (
+                      <textarea
+                        id={`es-${company.id}`}
+                        className="doc-textarea"
+                        value={companyEdit.esContent}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { esContent: e.target.value })}
+                        placeholder="# ES下書き"
+                      />
+                    ) : (
+                      <div className="doc-preview">
+                        {companyEdit.esContent.trim() ? (
+                          <ReactMarkdown remarkPlugins={markdownPlugins}>{companyEdit.esContent}</ReactMarkdown>
+                        ) : (
+                          <p className="muted">ESドキュメントが未入力です。</p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="actions">
                       <button type="button" onClick={() => onSaveCompanyDetail(company.id)} disabled={savingCompanyID === company.id}>
