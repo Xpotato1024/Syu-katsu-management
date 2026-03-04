@@ -30,6 +30,17 @@ BACKEND_PORT="${BACKEND_HOST_PORT:-$(read_env_value BACKEND_HOST_PORT)}"
 FRONTEND_PORT="${FRONTEND_PORT:-15173}"
 BACKEND_PORT="${BACKEND_PORT:-18080}"
 
+detect_api_probe_base() {
+  local host
+  for host in localhost 127.0.0.1 host.docker.internal; do
+    if curl -fsS "http://${host}:${BACKEND_PORT}/health" >/dev/null 2>&1; then
+      printf '%s' "http://${host}:${BACKEND_PORT}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 echo "[gui-up] docker compose up -d --build"
 docker compose up -d --build
 
@@ -51,7 +62,7 @@ if [ "$ready" != "true" ]; then
 fi
 
 if command -v curl >/dev/null 2>&1; then
-  if ! curl -fsS "http://localhost:${BACKEND_PORT}/health" >/dev/null 2>&1; then
+  if ! detect_api_probe_base >/dev/null; then
     echo "[gui-up] 注意: ホストから /health へ到達できませんでした（環境差異の可能性があります）。"
   fi
 fi
