@@ -9,6 +9,11 @@ services:
       - "${DB_HOST_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-syukatsu_user} -d ${DB_NAME:-syukatsu}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   backend:
     build:
@@ -18,7 +23,8 @@ services:
     ports:
       - "${BACKEND_HOST_PORT:-18080}:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   frontend:
     build:
