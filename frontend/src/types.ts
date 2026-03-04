@@ -43,6 +43,11 @@ export type AuthUser = {
   provider: string
 }
 
+export type AuthConfig = {
+  mode: "none" | "proxy_header" | "local" | string
+  allowRegistration: boolean
+}
+
 export type ViewKey = "companies" | "timeline" | "agenda"
 
 export type TimelineOverflowState = {
