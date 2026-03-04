@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - work
+
+jobs:
+  docs-and-templates:
+    name: Docs / template checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          test -f doc/README.md
+          test -f doc/requirements/overview.md
+          test -f doc/implementation/architecture.md
+          test -f doc/implementation/roadmap.md
+          test -f doc/issues/open-questions.md
+          test -f .env.example
+          test -f .gitignore
+
+      - name: Ensure .env is ignored and .env.example is tracked
+        run: |
+          set -euo pipefail
+          rg -n '^\.env$' .gitignore
+          rg -n '^!\.env\.example$' .gitignore
+
+  go-test:
+    name: Go test
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('backend/go.mod') != '' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Test
+        run: go test ./...
+
+  frontend-test:
+    name: Frontend test
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('frontend/package-lock.json') != '' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --runInBand
