@@ -17,7 +17,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_OWNER: ${{ github.repository_owner }}
 
 jobs:
   build-and-push:
@@ -47,6 +46,18 @@ jobs:
           fi
           echo "value=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve image owner (lowercase)
+        id: owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          if [ -z "$owner" ]; then
+            echo "ERROR: image owner is empty" >&2
+            exit 2
+          fi
+          echo "value=$owner" >> "$GITHUB_OUTPUT"
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -63,7 +74,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/syu-katsu-management-backend:${{ steps.tag.outputs.value }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/syu-katsu-management-backend:${{ steps.tag.outputs.value }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -71,4 +82,4 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/syu-katsu-management-frontend:${{ steps.tag.outputs.value }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/syu-katsu-management-frontend:${{ steps.tag.outputs.value }}
