@@ -63,6 +63,7 @@ export function App() {
           newSteps={companies.newSteps}
           stepDraftByCompany={companies.stepDraftByCompany}
           stepEdits={companies.stepEdits}
+          companyEdits={companies.companyEdits}
           expandedCompanyIDs={companies.expandedCompanyIDs}
           onFilterNameChange={companies.setFilterName}
           onFilterStatusChange={companies.setFilterStatus}
@@ -77,6 +78,10 @@ export function App() {
           onToggleCompanyDetail={companies.toggleCompanyDetail}
           onUpdateStepEdit={companies.updateStepEdit}
           onSaveStep={(companyID, stepID) => void companies.saveStep(companyID, stepID)}
+          onUpdateCompanyEdit={companies.updateCompanyEdit}
+          onApplyResearchTemplate={companies.applyResearchTemplate}
+          onSaveCompanyDetail={(companyID) => void companies.saveCompanyDetail(companyID)}
+          savingCompanyID={companies.savingCompanyID}
           onUpdateInlineDraft={companies.updateInlineDraft}
           onAddStepToCompany={(companyID) => void companies.addStepToCompany(companyID)}
         />
@@ -96,7 +101,6 @@ export function App() {
           hasScheduledSteps={timeline.hasScheduledSteps}
           hasScheduledStepsForFilteredCompanies={timeline.hasScheduledStepsForFilteredCompanies}
           timelineDays={timeline.timelineDays}
-          scheduleRangeByCompany={timeline.scheduleRangeByCompany}
           stepsByCompanyDay={timeline.stepsByCompanyDay}
         />
       )}

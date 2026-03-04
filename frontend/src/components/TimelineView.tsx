@@ -1,6 +1,6 @@
-import { Fragment } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { weekdayShort } from "../constants"
-import type { Company, SelectionStep, TimelineOverflowState } from "../types"
+import type { Company, SelectionStep } from "../types"
 import { toDateInputValue } from "../utils/date"
 import { stepLabel } from "../utils/selection"
 
@@ -17,7 +17,6 @@ type TimelineViewProps = {
   hasScheduledSteps: boolean
   hasScheduledStepsForFilteredCompanies: boolean
   timelineDays: Date[]
-  scheduleRangeByCompany: Record<string, TimelineOverflowState>
   stepsByCompanyDay: Record<string, Record<string, SelectionStep[]>>
 }
 
@@ -34,14 +33,73 @@ export function TimelineView({
   hasScheduledSteps,
   hasScheduledStepsForFilteredCompanies,
   timelineDays,
-  scheduleRangeByCompany,
   stepsByCompanyDay
 }: TimelineViewProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const headerRefs = useRef<Array<HTMLDivElement | null>>([])
+  const [visibleDayRange, setVisibleDayRange] = useState({ start: 0, end: Math.max(0, timelineDays.length - 1) })
+
+  const dayIndexByKey = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < timelineDays.length; i++) {
+      map.set(toDateInputValue(timelineDays[i].toISOString()), i)
+    }
+    return map
+  }, [timelineDays])
+
+  const updateVisibleRange = useCallback(() => {
+    const container = scrollRef.current
+    if (!container || timelineDays.length === 0) {
+      setVisibleDayRange({ start: 0, end: Math.max(0, timelineDays.length - 1) })
+      return
+    }
+
+    const containerRect = container.getBoundingClientRect()
+    const stickyWidth = 220
+    const visibleLeft = containerRect.left + stickyWidth
+    const visibleRight = containerRect.right
+    let start = -1
+    let end = -1
+
+    for (let i = 0; i < timelineDays.length; i++) {
+      const header = headerRefs.current[i]
+      if (!header) continue
+      const rect = header.getBoundingClientRect()
+      const isVisible = rect.right > visibleLeft && rect.left < visibleRight
+      if (!isVisible) continue
+      if (start < 0) start = i
+      end = i
+    }
+
+    if (start < 0 || end < 0) {
+      setVisibleDayRange({ start: 0, end: Math.max(0, timelineDays.length - 1) })
+      return
+    }
+    setVisibleDayRange({ start, end })
+  }, [timelineDays])
+
+  useEffect(() => {
+    updateVisibleRange()
+  }, [updateVisibleRange, calendarFilteredCompanies.length])
+
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const onRecalc = () => updateVisibleRange()
+    container.addEventListener("scroll", onRecalc, { passive: true })
+    window.addEventListener("resize", onRecalc)
+    return () => {
+      container.removeEventListener("scroll", onRecalc)
+      window.removeEventListener("resize", onRecalc)
+    }
+  }, [updateVisibleRange])
+
   return (
     <>
       <section className="panel timeline-toolbar">
         <h2>企業別カレンダー</h2>
-        <p className="muted">表示範囲外の予定がある企業は、行の左右端を強調表示します。</p>
+        <p className="muted">今見えている範囲の外に予定がある企業は、行の左右端を強調表示します。</p>
         <div className="row">
           <button type="button" className="button-secondary" onClick={onPrevMonth}>
             前月
@@ -79,13 +137,19 @@ export function TimelineView({
           <p className="muted">絞り込み条件に一致する日程付きステップがありません。</p>
         )}
         {calendarFilteredCompanies.length === 0 && <p className="muted">絞り込み条件に一致する企業がありません。</p>}
-        <div className="timeline-scroll">
+        <div className="timeline-scroll" ref={scrollRef}>
           <div className="timeline-grid" style={{ gridTemplateColumns: `220px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
             <div className="timeline-header sticky-col">企業 / 日付</div>
-            {timelineDays.map((day) => {
+            {timelineDays.map((day, dayIndex) => {
               const isWeekend = day.getDay() === 0 || day.getDay() === 6
               return (
-                <div key={`head-${day.toISOString()}`} className={isWeekend ? "timeline-header weekend" : "timeline-header"}>
+                <div
+                  key={`head-${day.toISOString()}`}
+                  ref={(element) => {
+                    headerRefs.current[dayIndex] = element
+                  }}
+                  className={isWeekend ? "timeline-header weekend" : "timeline-header"}
+                >
                   <div>{day.getDate()}</div>
                   <small>{weekdayShort[day.getDay()]}</small>
                 </div>
@@ -93,8 +157,17 @@ export function TimelineView({
             })}
 
             {calendarFilteredCompanies.map((company) => {
-              const overflow = scheduleRangeByCompany[company.id] ?? { hasBefore: false, hasAfter: false }
-              const companyClassName = ["timeline-company", "sticky-col", overflow.hasBefore ? "has-before" : "", overflow.hasAfter ? "has-after" : ""]
+              const scheduledDayKeys = Object.keys(stepsByCompanyDay[company.id] ?? {})
+              let hasBefore = false
+              let hasAfter = false
+              for (const dayKey of scheduledDayKeys) {
+                const dayIndex = dayIndexByKey.get(dayKey)
+                if (dayIndex === undefined) continue
+                if (dayIndex < visibleDayRange.start) hasBefore = true
+                if (dayIndex > visibleDayRange.end) hasAfter = true
+              }
+
+              const companyClassName = ["timeline-company", "sticky-col", hasBefore ? "has-before" : "", hasAfter ? "has-after" : ""]
                 .filter((value) => value !== "")
                 .join(" ")
 
@@ -103,11 +176,11 @@ export function TimelineView({
                   <div className={companyClassName}>
                     <strong>{company.name}</strong>
                     <small>{company.selectionStatus}</small>
-                    {(overflow.hasBefore || overflow.hasAfter) && (
+                    {(hasBefore || hasAfter) && (
                       <span className="timeline-edge-note">
-                        {overflow.hasBefore ? "← 前月に予定あり" : ""}
-                        {overflow.hasBefore && overflow.hasAfter ? " / " : ""}
-                        {overflow.hasAfter ? "翌月に予定あり →" : ""}
+                        {hasBefore ? "← 左側に見切れあり" : ""}
+                        {hasBefore && hasAfter ? " / " : ""}
+                        {hasAfter ? "右側に見切れあり →" : ""}
                       </span>
                     )}
                   </div>
@@ -116,8 +189,8 @@ export function TimelineView({
                     const entries = stepsByCompanyDay[company.id]?.[dayKey] ?? []
                     const cellClassName = [
                       "timeline-cell",
-                      index === 0 && overflow.hasBefore ? "overflow-left" : "",
-                      index === timelineDays.length - 1 && overflow.hasAfter ? "overflow-right" : ""
+                      index === visibleDayRange.start && hasBefore ? "overflow-left" : "",
+                      index === visibleDayRange.end && hasAfter ? "overflow-right" : ""
                     ]
                       .filter((value) => value !== "")
                       .join(" ")
