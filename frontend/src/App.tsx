@@ -28,9 +28,17 @@ type StepEdit = {
   scheduledAt: string
 }
 
+type AuthUser = {
+  id: string
+  name?: string
+  email?: string
+  provider: string
+}
+
 type ViewKey = 'companies' | 'timeline'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api'
+const logoutURL = import.meta.env.VITE_LOGOUT_URL ?? ''
 const companyStatusOptions = ['未着手', '選考中', '内定', 'お見送り', '辞退']
 const stepKindOptions = ['エントリー', 'ES', 'Webテスト', 'GD', '面接', '面談', '説明会', 'その他']
 const stepStatusOptions = ['未着手', '予定', '実施済', '通過', '不通過', '辞退']
@@ -89,9 +97,29 @@ export function App() {
   const [submitting, setSubmitting] = useState(false)
   const [savingStepID, setSavingStepID] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [viewer, setViewer] = useState<AuthUser | null>(null)
+  const [viewerError, setViewerError] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>(() => parseViewFromHash(window.location.hash))
   const [timelineMonth, setTimelineMonth] = useState<Date>(() => startOfMonth())
+
+  async function loadViewer() {
+    setViewerError('')
+    try {
+      const response = await fetch(`${apiBase}/me`)
+      if (response.status === 401) {
+        setViewer(null)
+        setViewerError('未ログインです。Autheliaのログイン状態を確認してください。')
+        return
+      }
+      if (!response.ok) throw new Error(`failed to load user: ${response.status}`)
+      const data = (await response.json()) as AuthUser
+      setViewer(data)
+    } catch (_error) {
+      setViewer(null)
+      setViewerError('アカウント情報の取得に失敗しました。')
+    }
+  }
 
   async function loadCompanies(nameQuery = filterName, status = filterStatus) {
     const params = new URLSearchParams()
@@ -103,6 +131,11 @@ export function App() {
     setErrorMessage('')
     try {
       const response = await fetch(url)
+      if (response.status === 401) {
+        setCompanies([])
+        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        return
+      }
       if (!response.ok) throw new Error(`failed to load companies: ${response.status}`)
       const data = (await response.json()) as Company[]
       setCompanies(data)
@@ -151,6 +184,10 @@ export function App() {
           researchContent: ''
         })
       })
+      if (response.status === 401) {
+        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        return
+      }
       if (!response.ok) throw new Error(`failed to create company: ${response.status}`)
     } catch (_error) {
       setErrorMessage('企業の追加に失敗しました。')
@@ -189,6 +226,10 @@ export function App() {
           status: draft.status
         })
       })
+      if (response.status === 401) {
+        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        return
+      }
       if (!response.ok) throw new Error(`failed to add step: ${response.status}`)
       setStepDraftByCompany((prev) => ({ ...prev, [companyID]: newStepDraft('面接') }))
       await loadCompanies()
@@ -212,6 +253,10 @@ export function App() {
           scheduledAt: edit.scheduledAt
         })
       })
+      if (response.status === 401) {
+        setErrorMessage('ログインセッションがありません。Autheliaでログインしてください。')
+        return
+      }
       if (!response.ok) throw new Error(`failed to update step: ${response.status}`)
       await loadCompanies()
     } catch (_error) {
@@ -231,6 +276,7 @@ export function App() {
   }
 
   useEffect(() => {
+    void loadViewer()
     void loadCompanies()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -242,6 +288,16 @@ export function App() {
     onHashChange()
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
   const timelineDays = useMemo(() => buildMonthDays(timelineMonth), [timelineMonth])
@@ -271,7 +327,14 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <button className="icon-button" type="button" onClick={() => setIsMenuOpen((prev) => !prev)} aria-label="メニュー">
+        <button
+          className="icon-button"
+          type="button"
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          aria-label="メニュー"
+          aria-expanded={isMenuOpen}
+          aria-controls="global-menu"
+        >
           <span />
           <span />
           <span />
@@ -280,32 +343,60 @@ export function App() {
           <p className="eyebrow">Job Hunting Tracker</p>
           <h1>就活フロー管理</h1>
         </div>
-        <nav className="desktop-nav">
+        <div className="topbar-meta">
+          <span className="view-chip">{activeView === 'companies' ? '企業管理' : '選考カレンダー'}</span>
+          <span className="user-chip">{viewer?.name || viewer?.id || 'ゲスト'}</span>
+        </div>
+      </header>
+
+      <aside id="global-menu" className={isMenuOpen ? 'drawer open' : 'drawer'}>
+        <p className="drawer-title">メニュー</p>
+        <div className="drawer-group">
           <button
             type="button"
-            className={activeView === 'companies' ? 'tab active' : 'tab'}
+            className={activeView === 'companies' ? 'drawer-item active' : 'drawer-item'}
             onClick={() => navigateTo('companies')}
           >
             企業管理
           </button>
           <button
             type="button"
-            className={activeView === 'timeline' ? 'tab active' : 'tab'}
+            className={activeView === 'timeline' ? 'drawer-item active' : 'drawer-item'}
             onClick={() => navigateTo('timeline')}
           >
             選考カレンダー
           </button>
-        </nav>
-      </header>
-
-      <aside className={isMenuOpen ? 'drawer open' : 'drawer'}>
-        <p className="drawer-title">メニュー</p>
-        <button type="button" className={activeView === 'companies' ? 'drawer-item active' : 'drawer-item'} onClick={() => navigateTo('companies')}>
-          企業管理
-        </button>
-        <button type="button" className={activeView === 'timeline' ? 'drawer-item active' : 'drawer-item'} onClick={() => navigateTo('timeline')}>
-          選考カレンダー
-        </button>
+        </div>
+        <div className="drawer-divider" />
+        <div className="drawer-group">
+          <p className="drawer-subtitle">アカウント</p>
+          {viewer ? (
+            <div className="account-card">
+              <strong>{viewer.name || viewer.id}</strong>
+              <small>ID: {viewer.id}</small>
+              {viewer.email && <small>{viewer.email}</small>}
+              <small>provider: {viewer.provider}</small>
+            </div>
+          ) : (
+            <p className="muted">{viewerError || 'アカウント情報を読み込み中...'}</p>
+          )}
+          <button
+            type="button"
+            className="drawer-item"
+            onClick={() => {
+              setIsMenuOpen(false)
+              void loadViewer()
+              void loadCompanies()
+            }}
+          >
+            情報を再読み込み
+          </button>
+          {logoutURL && (
+            <a className="drawer-link" href={logoutURL}>
+              ログアウト
+            </a>
+          )}
+        </div>
       </aside>
       <button
         type="button"

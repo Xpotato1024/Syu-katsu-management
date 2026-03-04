@@ -7,11 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"syu-katsu-management/backend/internal/auth"
 )
 
 func TestCreateAndListCompanies(t *testing.T) {
 	repo := NewRepository()
-	h := NewHandler(repo)
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
 	mux := http.NewServeMux()
 	h.Register(mux)
 
@@ -44,7 +47,8 @@ func TestCreateAndListCompanies(t *testing.T) {
 
 func TestListCompaniesWithFilters(t *testing.T) {
 	repo := NewRepository()
-	h := NewHandler(repo)
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
 	mux := http.NewServeMux()
 	h.Register(mux)
 
@@ -76,7 +80,8 @@ func TestListCompaniesWithFilters(t *testing.T) {
 
 func TestCreateCompanyWithSelectionSteps(t *testing.T) {
 	repo := NewRepository()
-	h := NewHandler(repo)
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
 	mux := http.NewServeMux()
 	h.Register(mux)
 
@@ -103,7 +108,8 @@ func TestCreateCompanyWithSelectionSteps(t *testing.T) {
 
 func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 	repo := NewRepository()
-	h := NewHandler(repo)
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
 	mux := http.NewServeMux()
 	h.Register(mux)
 
@@ -156,6 +162,59 @@ func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 	}
 }
 
+func TestMeEndpointWithProxyHeaderMode(t *testing.T) {
+	repo := NewRepository()
+	authProvider, _ := auth.NewProvider(auth.Config{
+		Mode:             auth.ModeProxyHeader,
+		ProxyUserHeader:  "X-Test-User",
+		ProxyEmailHeader: "X-Test-Email",
+	})
+	h := NewHandler(repo, authProvider)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("X-Test-User", "authelia-sub")
+	req.Header.Set("X-Test-Email", "authelia@example.com")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", rec.Code)
+	}
+
+	var user map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &user); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if user["id"] != "authelia-sub" {
+		t.Fatalf("unexpected user payload: %+v", user)
+	}
+}
+
+func TestCompaniesAreScopedByUserHeader(t *testing.T) {
+	repo := NewRepository()
+	authProvider, _ := auth.NewProvider(auth.Config{
+		Mode:            auth.ModeProxyHeader,
+		ProxyUserHeader: "X-Test-User",
+	})
+	h := NewHandler(repo, authProvider)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	createForUser(t, mux, "alice", UpsertInput{Name: "Alice Corp"})
+	createForUser(t, mux, "bob", UpsertInput{Name: "Bob Corp"})
+
+	aliceCompanies := mustListCompaniesForUser(t, mux, "alice", "/companies")
+	if len(aliceCompanies) != 1 || aliceCompanies[0].Name != "Alice Corp" {
+		t.Fatalf("unexpected alice companies: %+v", aliceCompanies)
+	}
+
+	bobCompanies := mustListCompaniesForUser(t, mux, "bob", "/companies")
+	if len(bobCompanies) != 1 || bobCompanies[0].Name != "Bob Corp" {
+		t.Fatalf("unexpected bob companies: %+v", bobCompanies)
+	}
+}
+
 func mustCreateCompany(t *testing.T, mux *http.ServeMux, input UpsertInput) {
 	t.Helper()
 
@@ -205,4 +264,35 @@ func mustListCompanies(t *testing.T, mux *http.ServeMux, path string) []Company 
 
 func ptr(v string) *string {
 	return &v
+}
+
+func createForUser(t *testing.T, mux *http.ServeMux, userID string, input UpsertInput) {
+	t.Helper()
+
+	body, _ := json.Marshal(input)
+	req := httptest.NewRequest(http.MethodPost, "/companies", bytes.NewReader(body))
+	req.Header.Set("X-Test-User", userID)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 got %d", rec.Code)
+	}
+}
+
+func mustListCompaniesForUser(t *testing.T, mux *http.ServeMux, userID, path string) []Company {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("X-Test-User", userID)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", rec.Code)
+	}
+
+	var companies []Company
+	if err := json.Unmarshal(rec.Body.Bytes(), &companies); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	return companies
 }
