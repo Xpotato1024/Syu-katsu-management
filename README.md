@@ -4,7 +4,11 @@
 Go + TypeScript + PostgreSQL を Docker で動かす構成を採用しています。
 
 ## リリース
-- 現在のリリースバージョン: `v0.2.0`
+- 現在のリリースバージョン: `v0.3.0`
+- コンテナイメージ公開:
+  - Workflow: `.github/workflows/release-images.yml`
+  - backend: `ghcr.io/xpotato1024/syu-katsu-management-backend:<tag>`
+  - frontend: `ghcr.io/xpotato1024/syu-katsu-management-frontend:<tag>`
 
 ## 技術スタック
 - Backend: Go (net/http)
