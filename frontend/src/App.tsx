@@ -96,7 +96,6 @@ export function App() {
           hasScheduledSteps={timeline.hasScheduledSteps}
           hasScheduledStepsForFilteredCompanies={timeline.hasScheduledStepsForFilteredCompanies}
           timelineDays={timeline.timelineDays}
-          scheduleRangeByCompany={timeline.scheduleRangeByCompany}
           stepsByCompanyDay={timeline.stepsByCompanyDay}
         />
       )}

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import type { AgendaEvent, AgendaGroup, Company, SelectionStep, TimelineOverflowState } from "../types"
+import type { AgendaEvent, AgendaGroup, Company, SelectionStep } from "../types"
 import { buildMonthDays, shiftMonth, startOfMonth, toDateInputValue } from "../utils/date"
 import { stepLabel } from "../utils/selection"
 
@@ -47,21 +47,6 @@ export function useTimeline({ companies }: UseTimelineArgs) {
     }
     return map
   }, [companies])
-
-  const scheduleRangeByCompany = useMemo(() => {
-    const map: Record<string, TimelineOverflowState> = {}
-    for (const company of companies) {
-      const dayKeys = (company.selectionSteps || [])
-        .map((step) => toDateInputValue(step.scheduledAt))
-        .filter((value) => value !== "")
-
-      map[company.id] = {
-        hasBefore: timelineMonthStartKey ? dayKeys.some((dayKey) => dayKey < timelineMonthStartKey) : false,
-        hasAfter: timelineMonthEndKey ? dayKeys.some((dayKey) => dayKey > timelineMonthEndKey) : false
-      }
-    }
-    return map
-  }, [companies, timelineMonthStartKey, timelineMonthEndKey])
 
   const hasScheduledSteps = useMemo(() => {
     return companies.some((company) => company.selectionSteps.some((step) => !!toDateInputValue(step.scheduledAt)))
@@ -137,7 +122,6 @@ export function useTimeline({ companies }: UseTimelineArgs) {
     timelineDays,
     calendarFilteredCompanies,
     stepsByCompanyDay,
-    scheduleRangeByCompany,
     hasScheduledSteps,
     hasScheduledStepsForFilteredCompanies,
     agendaEvents,
