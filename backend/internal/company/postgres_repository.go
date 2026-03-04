@@ -1,0 +1,578 @@
+package company
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+)
+
+const queryTimeout = 5 * time.Second
+
+type PostgresRepository struct {
+	db *sql.DB
+}
+
+func NewPostgresRepository(db *sql.DB) *PostgresRepository {
+	return &PostgresRepository{db: db}
+}
+
+func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS companies (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			mypage_link TEXT NOT NULL DEFAULT '',
+			mypage_id TEXT NOT NULL DEFAULT '',
+			selection_flow TEXT NOT NULL DEFAULT '',
+			selection_status TEXT NOT NULL DEFAULT '',
+			es_content TEXT NOT NULL DEFAULT '',
+			research_content TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_companies_user_updated ON companies (user_id, updated_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS selection_steps (
+			id TEXT PRIMARY KEY,
+			company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			kind TEXT NOT NULL,
+			title TEXT NOT NULL,
+			status TEXT NOT NULL,
+			scheduled_at TIMESTAMPTZ NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_selection_steps_company_created ON selection_steps (company_id, created_at ASC);`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := r.db.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PostgresRepository) List(userID string, filter ListFilter) []Company {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	query := `SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+		FROM companies WHERE user_id = $1`
+	args := []any{userID}
+	argIndex := 2
+
+	search := strings.TrimSpace(filter.Query)
+	if search != "" {
+		query += fmt.Sprintf(" AND LOWER(name) LIKE LOWER($%d)", argIndex)
+		args = append(args, "%"+search+"%")
+		argIndex++
+	}
+
+	status := normalizeCompanyStatusFilter(filter.SelectionStatus)
+	if status != "" {
+		query += fmt.Sprintf(" AND selection_status = $%d", argIndex)
+		args = append(args, status)
+		argIndex++
+	}
+
+	query += " ORDER BY updated_at DESC"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return []Company{}
+	}
+	defer rows.Close()
+
+	companies := []Company{}
+	for rows.Next() {
+		var company Company
+		if err := rows.Scan(
+			&company.ID,
+			&company.Name,
+			&company.MypageLink,
+			&company.MypageID,
+			&company.SelectionFlow,
+			&company.SelectionStatus,
+			&company.ESContent,
+			&company.ResearchContent,
+			&company.CreatedAt,
+			&company.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		steps, err := r.listSteps(ctx, company.ID)
+		if err != nil {
+			continue
+		}
+		company.SelectionSteps = steps
+		companies = append(companies, company)
+	}
+	return companies
+}
+
+func (r *PostgresRepository) GetByID(userID, id string) (Company, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	var company Company
+	err := r.db.QueryRowContext(
+		ctx,
+		`SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+		FROM companies WHERE user_id = $1 AND id = $2`,
+		userID,
+		id,
+	).Scan(
+		&company.ID,
+		&company.Name,
+		&company.MypageLink,
+		&company.MypageID,
+		&company.SelectionFlow,
+		&company.SelectionStatus,
+		&company.ESContent,
+		&company.ResearchContent,
+		&company.CreatedAt,
+		&company.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Company{}, ErrNotFound
+		}
+		return Company{}, err
+	}
+
+	steps, err := r.listSteps(ctx, company.ID)
+	if err != nil {
+		return Company{}, err
+	}
+	company.SelectionSteps = steps
+	return company, nil
+}
+
+func (r *PostgresRepository) Create(userID string, input UpsertInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
+	selectionStatus, err := normalizeCompanyStatus(input.SelectionStatus)
+	if err != nil {
+		return Company{}, err
+	}
+	steps, err := buildSelectionSteps(input.SelectionSteps)
+	if err != nil {
+		return Company{}, err
+	}
+
+	selectionFlow := strings.TrimSpace(input.SelectionFlow)
+	if len(steps) > 0 {
+		selectionFlow = composeSelectionFlow(steps)
+	}
+
+	now := time.Now().UTC()
+	company := Company{
+		ID:              newEntityID(),
+		Name:            strings.TrimSpace(input.Name),
+		MypageLink:      strings.TrimSpace(input.MypageLink),
+		MypageID:        strings.TrimSpace(input.MypageID),
+		SelectionFlow:   selectionFlow,
+		SelectionStatus: selectionStatus,
+		SelectionSteps:  steps,
+		ESContent:       input.ESContent,
+		ResearchContent: input.ResearchContent,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Company{}, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`INSERT INTO companies (id, user_id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		company.ID,
+		userID,
+		company.Name,
+		company.MypageLink,
+		company.MypageID,
+		company.SelectionFlow,
+		company.SelectionStatus,
+		company.ESContent,
+		company.ResearchContent,
+		company.CreatedAt,
+		company.UpdatedAt,
+	); err != nil {
+		return Company{}, err
+	}
+
+	if err := insertSteps(ctx, tx, company.ID, company.SelectionSteps); err != nil {
+		return Company{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Company{}, err
+	}
+	return company, nil
+}
+
+func (r *PostgresRepository) Update(userID, id string, input UpsertInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Company{}, err
+	}
+	defer tx.Rollback()
+
+	existing, err := getCompanyForUpdate(ctx, tx, userID, id)
+	if err != nil {
+		return Company{}, err
+	}
+
+	status := existing.SelectionStatus
+	if strings.TrimSpace(input.SelectionStatus) != "" {
+		status, err = normalizeCompanyStatus(input.SelectionStatus)
+		if err != nil {
+			return Company{}, err
+		}
+	} else if status == "" {
+		status = DefaultCompanyStatus
+	}
+
+	existing.Name = strings.TrimSpace(input.Name)
+	existing.MypageLink = strings.TrimSpace(input.MypageLink)
+	existing.MypageID = strings.TrimSpace(input.MypageID)
+	existing.SelectionStatus = status
+	existing.ESContent = input.ESContent
+	existing.ResearchContent = input.ResearchContent
+	existing.UpdatedAt = time.Now().UTC()
+
+	if input.SelectionSteps != nil {
+		steps, err := buildSelectionSteps(input.SelectionSteps)
+		if err != nil {
+			return Company{}, err
+		}
+		existing.SelectionSteps = steps
+	} else {
+		existing.SelectionSteps, err = listStepsTx(ctx, tx, existing.ID)
+		if err != nil {
+			return Company{}, err
+		}
+	}
+
+	selectionFlow := strings.TrimSpace(input.SelectionFlow)
+	if len(existing.SelectionSteps) > 0 {
+		selectionFlow = composeSelectionFlow(existing.SelectionSteps)
+	}
+	existing.SelectionFlow = selectionFlow
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE companies SET name=$1, mypage_link=$2, mypage_id=$3, selection_flow=$4, selection_status=$5, es_content=$6, research_content=$7, updated_at=$8
+		WHERE user_id = $9 AND id = $10`,
+		existing.Name,
+		existing.MypageLink,
+		existing.MypageID,
+		existing.SelectionFlow,
+		existing.SelectionStatus,
+		existing.ESContent,
+		existing.ResearchContent,
+		existing.UpdatedAt,
+		userID,
+		id,
+	); err != nil {
+		return Company{}, err
+	}
+
+	if input.SelectionSteps != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM selection_steps WHERE company_id = $1`, existing.ID); err != nil {
+			return Company{}, err
+		}
+		if err := insertSteps(ctx, tx, existing.ID, existing.SelectionSteps); err != nil {
+			return Company{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Company{}, err
+	}
+	return existing, nil
+}
+
+func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionStepInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
+	step, err := buildSelectionStep(input)
+	if err != nil {
+		return Company{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Company{}, err
+	}
+	defer tx.Rollback()
+
+	company, err := getCompanyForUpdate(ctx, tx, userID, companyID)
+	if err != nil {
+		return Company{}, err
+	}
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		step.ID,
+		company.ID,
+		step.Kind,
+		step.Title,
+		step.Status,
+		step.ScheduledAt,
+		time.Now().UTC(),
+		time.Now().UTC(),
+	); err != nil {
+		return Company{}, err
+	}
+
+	steps, err := listStepsTx(ctx, tx, company.ID)
+	if err != nil {
+		return Company{}, err
+	}
+	company.SelectionSteps = steps
+	company.SelectionFlow = composeSelectionFlow(steps)
+	company.UpdatedAt = time.Now().UTC()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE companies SET selection_flow=$1, updated_at=$2 WHERE user_id=$3 AND id=$4`,
+		company.SelectionFlow,
+		company.UpdatedAt,
+		userID,
+		companyID,
+	); err != nil {
+		return Company{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Company{}, err
+	}
+	return company, nil
+}
+
+func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+	if input.Status == nil && input.ScheduledAt == nil {
+		return Company{}, fmt.Errorf("%w: status or scheduledAt is required", ErrInvalidInput)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Company{}, err
+	}
+	defer tx.Rollback()
+
+	company, err := getCompanyForUpdate(ctx, tx, userID, companyID)
+	if err != nil {
+		return Company{}, err
+	}
+
+	var current SelectionStep
+	err = tx.QueryRowContext(
+		ctx,
+		`SELECT id, kind, title, status, scheduled_at FROM selection_steps WHERE company_id = $1 AND id = $2`,
+		companyID,
+		stepID,
+	).Scan(&current.ID, &current.Kind, &current.Title, &current.Status, &current.ScheduledAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Company{}, ErrStepNotFound
+		}
+		return Company{}, err
+	}
+
+	if input.Status != nil {
+		normalizedStatus, err := normalizeSelectionStepStatus(*input.Status)
+		if err != nil {
+			return Company{}, err
+		}
+		current.Status = normalizedStatus
+	}
+	if input.ScheduledAt != nil {
+		scheduledAt, err := parseScheduledAt(*input.ScheduledAt)
+		if err != nil {
+			return Company{}, err
+		}
+		current.ScheduledAt = scheduledAt
+	}
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE selection_steps SET status=$1, scheduled_at=$2, updated_at=$3 WHERE id = $4 AND company_id = $5`,
+		current.Status,
+		current.ScheduledAt,
+		time.Now().UTC(),
+		current.ID,
+		companyID,
+	); err != nil {
+		return Company{}, err
+	}
+
+	steps, err := listStepsTx(ctx, tx, company.ID)
+	if err != nil {
+		return Company{}, err
+	}
+	company.SelectionSteps = steps
+	company.SelectionFlow = composeSelectionFlow(steps)
+	company.UpdatedAt = time.Now().UTC()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE companies SET selection_flow=$1, updated_at=$2 WHERE user_id=$3 AND id=$4`,
+		company.SelectionFlow,
+		company.UpdatedAt,
+		userID,
+		companyID,
+	); err != nil {
+		return Company{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Company{}, err
+	}
+	return company, nil
+}
+
+func (r *PostgresRepository) Delete(userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return invalidInput("user id is required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM companies WHERE user_id=$1 AND id=$2`, userID, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) listSteps(ctx context.Context, companyID string) ([]SelectionStep, error) {
+	return listStepsWithQuerier(ctx, r.db, companyID)
+}
+
+type querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func listStepsTx(ctx context.Context, q querier, companyID string) ([]SelectionStep, error) {
+	return listStepsWithQuerier(ctx, q, companyID)
+}
+
+func listStepsWithQuerier(ctx context.Context, q querier, companyID string) ([]SelectionStep, error) {
+	rows, err := q.QueryContext(
+		ctx,
+		`SELECT id, kind, title, status, scheduled_at FROM selection_steps WHERE company_id=$1 ORDER BY created_at ASC`,
+		companyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	steps := []SelectionStep{}
+	for rows.Next() {
+		var step SelectionStep
+		var scheduledAt sql.NullTime
+		if err := rows.Scan(&step.ID, &step.Kind, &step.Title, &step.Status, &scheduledAt); err != nil {
+			return nil, err
+		}
+		if scheduledAt.Valid {
+			t := scheduledAt.Time.UTC()
+			step.ScheduledAt = &t
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+func getCompanyForUpdate(ctx context.Context, q querier, userID, companyID string) (Company, error) {
+	var company Company
+	err := q.QueryRowContext(
+		ctx,
+		`SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+		FROM companies WHERE user_id = $1 AND id = $2 FOR UPDATE`,
+		userID,
+		companyID,
+	).Scan(
+		&company.ID,
+		&company.Name,
+		&company.MypageLink,
+		&company.MypageID,
+		&company.SelectionFlow,
+		&company.SelectionStatus,
+		&company.ESContent,
+		&company.ResearchContent,
+		&company.CreatedAt,
+		&company.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Company{}, ErrNotFound
+		}
+		return Company{}, err
+	}
+	return company, nil
+}
+
+func insertSteps(ctx context.Context, tx *sql.Tx, companyID string, steps []SelectionStep) error {
+	for _, step := range steps {
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			step.ID,
+			companyID,
+			step.Kind,
+			step.Title,
+			step.Status,
+			step.ScheduledAt,
+			time.Now().UTC(),
+			time.Now().UTC(),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}

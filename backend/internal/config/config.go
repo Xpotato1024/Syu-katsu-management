@@ -7,6 +7,8 @@ import (
 
 type Config struct {
 	AppPort              string
+	StorageBackend       string
+	DBAutoMigrate        bool
 	DBHost               string
 	DBPort               string
 	DBName               string
@@ -26,6 +28,8 @@ type Config struct {
 func Load() Config {
 	return Config{
 		AppPort:              getenv("APP_PORT", "8080"),
+		StorageBackend:       getenv("STORAGE_BACKEND", "postgres"),
+		DBAutoMigrate:        getenvBool("DB_AUTO_MIGRATE", true),
 		DBHost:               getenv("DB_HOST", "db"),
 		DBPort:               getenv("DB_PORT", "5432"),
 		DBName:               getenv("DB_NAME", "syukatsu"),
@@ -52,4 +56,19 @@ func getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getenvBool(key string, fallback bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "TRUE", "yes", "YES", "on", "ON":
+		return true
+	case "0", "false", "FALSE", "no", "NO", "off", "OFF":
+		return false
+	default:
+		return fallback
+	}
 }
