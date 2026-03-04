@@ -29,7 +29,10 @@ func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {
 func (h *Handler) companies(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, http.StatusOK, h.repo.List())
+		writeJSON(w, http.StatusOK, h.repo.List(ListFilter{
+			Query:           strings.TrimSpace(r.URL.Query().Get("q")),
+			SelectionStatus: strings.TrimSpace(r.URL.Query().Get("status")),
+		}))
 	case http.MethodPost:
 		var input UpsertInput
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil || strings.TrimSpace(input.Name) == "" {
