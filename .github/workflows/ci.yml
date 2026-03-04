@@ -30,40 +30,58 @@ jobs:
       - name: Ensure .env is ignored and .env.example is tracked
         run: |
           set -euo pipefail
-          rg -n '^\.env$' .gitignore
-          rg -n '^!\.env\.example$' .gitignore
+          grep -n '^\.env$' .gitignore
+          grep -n '^!\.env\.example$' .gitignore
 
   go-test:
     name: Go test
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('backend/go.mod') != '' }}
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect backend module
+        id: detect_backend
+        run: |
+          if [ -f backend/go.mod ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Go
+        if: ${{ steps.detect_backend.outputs.exists == 'true' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
 
       - name: Test
+        if: ${{ steps.detect_backend.outputs.exists == 'true' }}
+        working-directory: backend
         run: go test ./...
+
+      - name: Skip Go test (backend not found)
+        if: ${{ steps.detect_backend.outputs.exists != 'true' }}
+        run: echo "backend/go.mod がないため Go テストをスキップしました。"
 
   frontend-test:
     name: Frontend test
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('frontend/package-lock.json') != '' }}
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect frontend project
+        id: detect_frontend
+        run: |
+          if [ -f frontend/package-lock.json ] && [ -f frontend/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
+        if: ${{ steps.detect_frontend.outputs.exists == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -71,7 +89,20 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        if: ${{ steps.detect_frontend.outputs.exists == 'true' }}
+        working-directory: frontend
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --runInBand
+      - name: Build frontend
+        if: ${{ steps.detect_frontend.outputs.exists == 'true' }}
+        working-directory: frontend
+        run: npm run build
+
+      - name: Run frontend tests (if present)
+        if: ${{ steps.detect_frontend.outputs.exists == 'true' }}
+        working-directory: frontend
+        run: npm run test --if-present
+
+      - name: Skip frontend checks (frontend not found)
+        if: ${{ steps.detect_frontend.outputs.exists != 'true' }}
+        run: echo "frontend/package.json がないためフロントエンド検証をスキップしました。"

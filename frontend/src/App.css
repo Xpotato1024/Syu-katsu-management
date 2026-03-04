@@ -1,0 +1,263 @@
+:root {
+  --bg-top: #f0f8ff;
+  --bg-bottom: #fff7e8;
+  --panel: rgba(255, 255, 255, 0.92);
+  --line: #d9e3ef;
+  --text-main: #1f2a37;
+  --text-sub: #506176;
+  --accent: #0e7c86;
+  --accent-soft: #e3f7f9;
+  --warn: #d64b2a;
+  --shadow: 0 14px 34px rgba(31, 42, 55, 0.1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text-main);
+  font-family: "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  background: radial-gradient(circle at 0% 0%, #d7f3ff 0%, transparent 45%),
+    radial-gradient(circle at 100% 15%, #ffe8c6 0%, transparent 40%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+.app-shell {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 28px 20px 52px;
+  display: grid;
+  gap: 16px;
+}
+
+.hero {
+  padding: 26px 24px;
+  border-radius: 20px;
+  color: #f7fcff;
+  background: linear-gradient(120deg, #0f5f85, #0e7c86 55%, #239074);
+  box-shadow: var(--shadow);
+  animation: rise 420ms ease-out both;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(1.42rem, 3vw, 2rem);
+  letter-spacing: 0.02em;
+}
+
+.hero-sub {
+  margin: 8px 0 0;
+  opacity: 0.94;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  animation: rise 420ms ease-out both;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+input,
+select,
+button {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+input,
+select {
+  background: #fff;
+  color: var(--text-main);
+}
+
+input {
+  flex: 1;
+  min-width: 180px;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.04);
+}
+
+button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background: var(--accent-soft);
+  color: #165965;
+  border-color: #9fd8df;
+}
+
+.step-builder {
+  border: 1px dashed #aac7e2;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fcff;
+}
+
+.step-builder p {
+  margin: 0 0 8px;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.error {
+  margin: 0;
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-sub);
+}
+
+.company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.company-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  animation: rise 420ms ease-out both;
+}
+
+.company-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.company-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #ecf9fa;
+  color: #0b6570;
+  border: 1px solid #b8e4e9;
+  white-space: nowrap;
+}
+
+.step-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.step-item {
+  border: 1px solid #d8e5f2;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
+
+.step-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.kind {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f2f6ff;
+  border: 1px solid #d3dff5;
+  color: #2a4f96;
+}
+
+.step-row {
+  align-items: center;
+}
+
+.inline-step-add {
+  margin-top: 10px;
+  border-top: 1px dashed #d5deea;
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 20px 12px 32px;
+  }
+
+  .hero {
+    padding: 20px 16px;
+  }
+
+  .company-grid {
+    grid-template-columns: 1fr;
+  }
+}

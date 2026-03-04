@@ -1,14 +1,25 @@
 package company
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
-var ErrNotFound = errors.New("company not found")
+const (
+	DefaultCompanyStatus = "未着手"
+)
+
+var (
+	ErrNotFound     = errors.New("company not found")
+	ErrStepNotFound = errors.New("selection step not found")
+	ErrInvalidInput = errors.New("invalid input")
+)
 
 type Repository struct {
 	mu    sync.RWMutex
@@ -30,7 +41,7 @@ func (r *Repository) List(filter ListFilter) []Company {
 
 	companies := make([]Company, 0, len(r.items))
 	query := strings.ToLower(strings.TrimSpace(filter.Query))
-	status := strings.TrimSpace(filter.SelectionStatus)
+	status := normalizeCompanyStatusFilter(filter.SelectionStatus)
 
 	for _, c := range r.items {
 		if query != "" && !strings.Contains(strings.ToLower(c.Name), query) {
@@ -58,15 +69,40 @@ func (r *Repository) GetByID(id string) (Company, error) {
 	return c, nil
 }
 
-func (r *Repository) Create(c Company) Company {
+func (r *Repository) Create(input UpsertInput) (Company, error) {
+	selectionStatus, err := normalizeCompanyStatus(input.SelectionStatus)
+	if err != nil {
+		return Company{}, err
+	}
+	steps, err := buildSelectionSteps(input.SelectionSteps)
+	if err != nil {
+		return Company{}, err
+	}
+
+	selectionFlow := strings.TrimSpace(input.SelectionFlow)
+	if len(steps) > 0 {
+		selectionFlow = composeSelectionFlow(steps)
+	}
+
 	now := time.Now().UTC()
-	c.CreatedAt = now
-	c.UpdatedAt = now
+	c := Company{
+		ID:              newEntityID(),
+		Name:            strings.TrimSpace(input.Name),
+		MypageLink:      strings.TrimSpace(input.MypageLink),
+		MypageID:        strings.TrimSpace(input.MypageID),
+		SelectionFlow:   selectionFlow,
+		SelectionStatus: selectionStatus,
+		SelectionSteps:  steps,
+		ESContent:       input.ESContent,
+		ResearchContent: input.ResearchContent,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.items[c.ID] = c
-	return c
+	return c, nil
 }
 
 func (r *Repository) Update(id string, input UpsertInput) (Company, error) {
@@ -78,16 +114,113 @@ func (r *Repository) Update(id string, input UpsertInput) (Company, error) {
 		return Company{}, ErrNotFound
 	}
 
-	existing.Name = input.Name
-	existing.MypageLink = input.MypageLink
-	existing.MypageID = input.MypageID
-	existing.SelectionFlow = input.SelectionFlow
-	existing.SelectionStatus = input.SelectionStatus
+	status := existing.SelectionStatus
+	var err error
+	if strings.TrimSpace(input.SelectionStatus) != "" {
+		status, err = normalizeCompanyStatus(input.SelectionStatus)
+		if err != nil {
+			return Company{}, err
+		}
+	} else if status == "" {
+		status = DefaultCompanyStatus
+	}
+
+	existing.Name = strings.TrimSpace(input.Name)
+	existing.MypageLink = strings.TrimSpace(input.MypageLink)
+	existing.MypageID = strings.TrimSpace(input.MypageID)
+	existing.SelectionStatus = status
 	existing.ESContent = input.ESContent
 	existing.ResearchContent = input.ResearchContent
+
+	selectionFlow := strings.TrimSpace(input.SelectionFlow)
+	if input.SelectionSteps != nil {
+		steps, err := buildSelectionSteps(input.SelectionSteps)
+		if err != nil {
+			return Company{}, err
+		}
+		existing.SelectionSteps = steps
+		existing.SelectionFlow = composeSelectionFlow(steps)
+	} else if selectionFlow != "" || len(existing.SelectionSteps) == 0 {
+		existing.SelectionFlow = selectionFlow
+	}
+
+	if len(existing.SelectionSteps) > 0 {
+		existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
+	}
+
 	existing.UpdatedAt = time.Now().UTC()
 
 	r.items[id] = existing
+	return existing, nil
+}
+
+func (r *Repository) AddStep(companyID string, input SelectionStepInput) (Company, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, ok := r.items[companyID]
+	if !ok {
+		return Company{}, ErrNotFound
+	}
+
+	step, err := buildSelectionStep(input)
+	if err != nil {
+		return Company{}, err
+	}
+
+	existing.SelectionSteps = append(existing.SelectionSteps, step)
+	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
+	existing.UpdatedAt = time.Now().UTC()
+
+	r.items[companyID] = existing
+	return existing, nil
+}
+
+func (r *Repository) UpdateStep(companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+	if input.Status == nil && input.ScheduledAt == nil {
+		return Company{}, fmt.Errorf("%w: status or scheduledAt is required", ErrInvalidInput)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, ok := r.items[companyID]
+	if !ok {
+		return Company{}, ErrNotFound
+	}
+
+	index := -1
+	for i, step := range existing.SelectionSteps {
+		if step.ID == stepID {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return Company{}, ErrStepNotFound
+	}
+
+	step := existing.SelectionSteps[index]
+	if input.Status != nil {
+		normalizedStatus, err := normalizeSelectionStepStatus(*input.Status)
+		if err != nil {
+			return Company{}, err
+		}
+		step.Status = normalizedStatus
+	}
+	if input.ScheduledAt != nil {
+		scheduledAt, err := parseScheduledAt(*input.ScheduledAt)
+		if err != nil {
+			return Company{}, err
+		}
+		step.ScheduledAt = scheduledAt
+	}
+
+	existing.SelectionSteps[index] = step
+	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
+	existing.UpdatedAt = time.Now().UTC()
+
+	r.items[companyID] = existing
 	return existing, nil
 }
 
@@ -99,4 +232,184 @@ func (r *Repository) Delete(id string) error {
 	}
 	delete(r.items, id)
 	return nil
+}
+
+func newEntityID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return time.Now().UTC().Format("20060102150405000")
+	}
+	return hex.EncodeToString(b)
+}
+
+func invalidInput(message string) error {
+	return fmt.Errorf("%w: %s", ErrInvalidInput, message)
+}
+
+func normalizeCompanyStatus(raw string) (string, error) {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return DefaultCompanyStatus, nil
+	}
+
+	aliases := map[string]string{
+		"進行中": "選考中",
+		"不合格": "お見送り",
+		"完了":  "内定",
+	}
+	if normalized, ok := aliases[candidate]; ok {
+		candidate = normalized
+	}
+
+	allowed := map[string]struct{}{
+		"未着手":  {},
+		"選考中":  {},
+		"内定":   {},
+		"お見送り": {},
+		"辞退":   {},
+	}
+	if _, ok := allowed[candidate]; !ok {
+		return "", invalidInput("selectionStatus is invalid")
+	}
+	return candidate, nil
+}
+
+func normalizeCompanyStatusFilter(raw string) string {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return ""
+	}
+	normalized, err := normalizeCompanyStatus(candidate)
+	if err != nil {
+		return candidate
+	}
+	return normalized
+}
+
+func normalizeSelectionStepKind(raw string) (string, error) {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return "", invalidInput("selection step kind is required")
+	}
+	allowed := map[string]struct{}{
+		"エントリー":  {},
+		"ES":     {},
+		"Webテスト": {},
+		"GD":     {},
+		"面接":     {},
+		"面談":     {},
+		"説明会":    {},
+		"その他":    {},
+	}
+	if _, ok := allowed[candidate]; !ok {
+		return "", invalidInput("selection step kind is invalid")
+	}
+	return candidate, nil
+}
+
+func normalizeSelectionStepStatus(raw string) (string, error) {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return "未着手", nil
+	}
+	aliases := map[string]string{
+		"予定確定": "予定",
+		"受験済み": "実施済",
+	}
+	if normalized, ok := aliases[candidate]; ok {
+		candidate = normalized
+	}
+	allowed := map[string]struct{}{
+		"未着手": {},
+		"予定":  {},
+		"実施済": {},
+		"通過":  {},
+		"不通過": {},
+		"辞退":  {},
+	}
+	if _, ok := allowed[candidate]; !ok {
+		return "", invalidInput("selection step status is invalid")
+	}
+	return candidate, nil
+}
+
+func parseScheduledAt(raw string) (*time.Time, error) {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return nil, nil
+	}
+
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02T15:04",
+	}
+	for _, layout := range layouts {
+		t, err := time.Parse(layout, candidate)
+		if err == nil {
+			utc := t.UTC()
+			return &utc, nil
+		}
+	}
+	return nil, invalidInput("scheduledAt must be RFC3339 or YYYY-MM-DD")
+}
+
+func buildSelectionSteps(inputs []SelectionStepInput) ([]SelectionStep, error) {
+	if len(inputs) == 0 {
+		return []SelectionStep{}, nil
+	}
+
+	steps := make([]SelectionStep, 0, len(inputs))
+	for _, input := range inputs {
+		step, err := buildSelectionStep(input)
+		if err != nil {
+			return nil, err
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+func buildSelectionStep(input SelectionStepInput) (SelectionStep, error) {
+	kind, err := normalizeSelectionStepKind(input.Kind)
+	if err != nil {
+		return SelectionStep{}, err
+	}
+	status, err := normalizeSelectionStepStatus(input.Status)
+	if err != nil {
+		return SelectionStep{}, err
+	}
+	scheduledAt, err := parseScheduledAt(input.ScheduledAt)
+	if err != nil {
+		return SelectionStep{}, err
+	}
+
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		title = kind
+	}
+
+	return SelectionStep{
+		ID:          newEntityID(),
+		Kind:        kind,
+		Title:       title,
+		Status:      status,
+		ScheduledAt: scheduledAt,
+	}, nil
+}
+
+func composeSelectionFlow(steps []SelectionStep) string {
+	if len(steps) == 0 {
+		return ""
+	}
+
+	labels := make([]string, 0, len(steps))
+	for _, step := range steps {
+		label := strings.TrimSpace(step.Title)
+		if label == "" {
+			label = step.Kind
+		}
+		labels = append(labels, label)
+	}
+	return strings.Join(labels, " -> ")
 }

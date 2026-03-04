@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestCreateAndListCompanies(t *testing.T) {
@@ -35,6 +36,9 @@ func TestCreateAndListCompanies(t *testing.T) {
 	}
 	if len(companies) != 1 || companies[0].Name != "OpenAI" {
 		t.Fatalf("unexpected companies response: %+v", companies)
+	}
+	if companies[0].SelectionStatus != "選考中" {
+		t.Fatalf("unexpected selection status: %s", companies[0].SelectionStatus)
 	}
 }
 
@@ -70,6 +74,88 @@ func TestListCompaniesWithFilters(t *testing.T) {
 	})
 }
 
+func TestCreateCompanyWithSelectionSteps(t *testing.T) {
+	repo := NewRepository()
+	h := NewHandler(repo)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	created := mustCreateCompanyAndReturn(t, mux, UpsertInput{
+		Name:            "Example Corp",
+		SelectionStatus: "進行中",
+		SelectionSteps: []SelectionStepInput{
+			{Kind: "エントリー", Status: "通過"},
+			{Kind: "ES"},
+			{Kind: "Webテスト", Status: "予定"},
+		},
+	})
+
+	if created.SelectionFlow != "エントリー -> ES -> Webテスト" {
+		t.Fatalf("unexpected selection flow: %s", created.SelectionFlow)
+	}
+	if len(created.SelectionSteps) != 3 {
+		t.Fatalf("expected 3 steps got %d", len(created.SelectionSteps))
+	}
+	if created.SelectionSteps[0].ID == "" {
+		t.Fatalf("step id should not be empty")
+	}
+}
+
+func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
+	repo := NewRepository()
+	h := NewHandler(repo)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	created := mustCreateCompanyAndReturn(t, mux, UpsertInput{Name: "OpenAI"})
+
+	addBody, _ := json.Marshal(SelectionStepInput{
+		Kind:  "面接",
+		Title: "一次面接",
+	})
+	addReq := httptest.NewRequest(http.MethodPost, "/companies/"+created.ID+"/steps", bytes.NewReader(addBody))
+	addRec := httptest.NewRecorder()
+	mux.ServeHTTP(addRec, addReq)
+	if addRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", addRec.Code)
+	}
+
+	var afterAdd Company
+	if err := json.Unmarshal(addRec.Body.Bytes(), &afterAdd); err != nil {
+		t.Fatalf("failed to decode add response: %v", err)
+	}
+	if len(afterAdd.SelectionSteps) != 1 {
+		t.Fatalf("expected 1 step got %d", len(afterAdd.SelectionSteps))
+	}
+
+	stepID := afterAdd.SelectionSteps[0].ID
+	updateBody, _ := json.Marshal(SelectionStepUpdateInput{
+		Status:      ptr("予定"),
+		ScheduledAt: ptr("2026-03-20"),
+	})
+	updateReq := httptest.NewRequest(http.MethodPut, "/companies/"+created.ID+"/steps/"+stepID, bytes.NewReader(updateBody))
+	updateRec := httptest.NewRecorder()
+	mux.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", updateRec.Code)
+	}
+
+	var afterUpdate Company
+	if err := json.Unmarshal(updateRec.Body.Bytes(), &afterUpdate); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+	step := afterUpdate.SelectionSteps[0]
+	if step.Status != "予定" {
+		t.Fatalf("unexpected step status: %s", step.Status)
+	}
+	if step.ScheduledAt == nil {
+		t.Fatalf("scheduledAt should not be nil")
+	}
+	if step.ScheduledAt.Format("2006-01-02") != "2026-03-20" {
+		t.Fatalf("unexpected scheduledAt: %s", step.ScheduledAt.Format(time.RFC3339))
+	}
+}
+
 func mustCreateCompany(t *testing.T, mux *http.ServeMux, input UpsertInput) {
 	t.Helper()
 
@@ -80,6 +166,24 @@ func mustCreateCompany(t *testing.T, mux *http.ServeMux, input UpsertInput) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201 got %d", rec.Code)
 	}
+}
+
+func mustCreateCompanyAndReturn(t *testing.T, mux *http.ServeMux, input UpsertInput) Company {
+	t.Helper()
+
+	body, _ := json.Marshal(input)
+	req := httptest.NewRequest(http.MethodPost, "/companies", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 got %d", rec.Code)
+	}
+
+	var company Company
+	if err := json.Unmarshal(rec.Body.Bytes(), &company); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	return company
 }
 
 func mustListCompanies(t *testing.T, mux *http.ServeMux, path string) []Company {
@@ -97,4 +201,8 @@ func mustListCompanies(t *testing.T, mux *http.ServeMux, path string) []Company 
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 	return companies
+}
+
+func ptr(v string) *string {
+	return &v
 }
