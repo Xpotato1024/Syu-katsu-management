@@ -32,7 +32,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${FRONTEND_HOST_PORT:-15173}:5173"
+      - "${FRONTEND_HOST_PORT:-15173}:8080"
     depends_on:
       - backend
 
