@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"syu-katsu-management/backend/internal/auth"
 	"syu-katsu-management/backend/internal/company"
 	"syu-katsu-management/backend/internal/config"
 )
@@ -13,14 +14,26 @@ func main() {
 	cfg := config.Load()
 
 	repo := company.NewRepository()
-	handler := company.NewHandler(repo)
+	authProvider, err := auth.NewProvider(auth.Config{
+		Mode:             cfg.AuthMode,
+		ProxyUserHeader:  cfg.AuthProxyUserHeader,
+		ProxyEmailHeader: cfg.AuthProxyEmailHeader,
+		DevUserID:        cfg.AuthDevUserID,
+		DevUserName:      cfg.AuthDevUserName,
+		DevUserEmail:     cfg.AuthDevUserEmail,
+	})
+	if err != nil {
+		log.Fatalf("invalid auth configuration: %v", err)
+	}
+
+	handler := company.NewHandler(repo, authProvider)
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.AppPort,
-		Handler: withCORS(mux, cfg.CORSAllowedOrigins),
+		Handler: withCORS(mux, cfg.CORSAllowedOrigins, cfg.CORSAllowedHeaders),
 	}
 
 	log.Printf("server starting on %s", server.Addr)
@@ -29,11 +42,15 @@ func main() {
 	}
 }
 
-func withCORS(next http.Handler, allowedOrigins string) http.Handler {
+func withCORS(next http.Handler, allowedOrigins, allowedHeaders string) http.Handler {
 	origins := strings.Split(allowedOrigins, ",")
 	allowed := map[string]struct{}{}
 	for _, o := range origins {
-		allowed[strings.TrimSpace(o)] = struct{}{}
+		trimmed := strings.TrimSpace(o)
+		if trimmed == "" {
+			continue
+		}
+		allowed[trimmed] = struct{}{}
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +60,7 @@ func withCORS(next http.Handler, allowedOrigins string) http.Handler {
 			w.Header().Set("Vary", "Origin")
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Accept")
+		w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

@@ -22,8 +22,8 @@ var (
 )
 
 type Repository struct {
-	mu    sync.RWMutex
-	items map[string]Company
+	mu          sync.RWMutex
+	itemsByUser map[string]map[string]Company
 }
 
 type ListFilter struct {
@@ -32,18 +32,19 @@ type ListFilter struct {
 }
 
 func NewRepository() *Repository {
-	return &Repository{items: map[string]Company{}}
+	return &Repository{itemsByUser: map[string]map[string]Company{}}
 }
 
-func (r *Repository) List(filter ListFilter) []Company {
+func (r *Repository) List(userID string, filter ListFilter) []Company {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	companies := make([]Company, 0, len(r.items))
+	userItems := r.itemsByUser[userID]
+	companies := make([]Company, 0, len(userItems))
 	query := strings.ToLower(strings.TrimSpace(filter.Query))
 	status := normalizeCompanyStatusFilter(filter.SelectionStatus)
 
-	for _, c := range r.items {
+	for _, c := range userItems {
 		if query != "" && !strings.Contains(strings.ToLower(c.Name), query) {
 			continue
 		}
@@ -58,18 +59,22 @@ func (r *Repository) List(filter ListFilter) []Company {
 	return companies
 }
 
-func (r *Repository) GetByID(id string) (Company, error) {
+func (r *Repository) GetByID(userID, id string) (Company, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	c, ok := r.items[id]
+	c, ok := r.itemsByUser[userID][id]
 	if !ok {
 		return Company{}, ErrNotFound
 	}
 	return c, nil
 }
 
-func (r *Repository) Create(input UpsertInput) (Company, error) {
+func (r *Repository) Create(userID string, input UpsertInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
 	selectionStatus, err := normalizeCompanyStatus(input.SelectionStatus)
 	if err != nil {
 		return Company{}, err
@@ -101,15 +106,20 @@ func (r *Repository) Create(input UpsertInput) (Company, error) {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.items[c.ID] = c
+	r.ensureUserStore(userID)[c.ID] = c
 	return c, nil
 }
 
-func (r *Repository) Update(id string, input UpsertInput) (Company, error) {
+func (r *Repository) Update(userID, id string, input UpsertInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existing, ok := r.items[id]
+	userItems := r.ensureUserStore(userID)
+	existing, ok := userItems[id]
 	if !ok {
 		return Company{}, ErrNotFound
 	}
@@ -150,15 +160,20 @@ func (r *Repository) Update(id string, input UpsertInput) (Company, error) {
 
 	existing.UpdatedAt = time.Now().UTC()
 
-	r.items[id] = existing
+	userItems[id] = existing
 	return existing, nil
 }
 
-func (r *Repository) AddStep(companyID string, input SelectionStepInput) (Company, error) {
+func (r *Repository) AddStep(userID, companyID string, input SelectionStepInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existing, ok := r.items[companyID]
+	userItems := r.ensureUserStore(userID)
+	existing, ok := userItems[companyID]
 	if !ok {
 		return Company{}, ErrNotFound
 	}
@@ -172,11 +187,15 @@ func (r *Repository) AddStep(companyID string, input SelectionStepInput) (Compan
 	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
 	existing.UpdatedAt = time.Now().UTC()
 
-	r.items[companyID] = existing
+	userItems[companyID] = existing
 	return existing, nil
 }
 
-func (r *Repository) UpdateStep(companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+func (r *Repository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+
 	if input.Status == nil && input.ScheduledAt == nil {
 		return Company{}, fmt.Errorf("%w: status or scheduledAt is required", ErrInvalidInput)
 	}
@@ -184,7 +203,8 @@ func (r *Repository) UpdateStep(companyID, stepID string, input SelectionStepUpd
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existing, ok := r.items[companyID]
+	userItems := r.ensureUserStore(userID)
+	existing, ok := userItems[companyID]
 	if !ok {
 		return Company{}, ErrNotFound
 	}
@@ -220,18 +240,33 @@ func (r *Repository) UpdateStep(companyID, stepID string, input SelectionStepUpd
 	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
 	existing.UpdatedAt = time.Now().UTC()
 
-	r.items[companyID] = existing
+	userItems[companyID] = existing
 	return existing, nil
 }
 
-func (r *Repository) Delete(id string) error {
+func (r *Repository) Delete(userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return invalidInput("user id is required")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.items[id]; !ok {
+
+	userItems := r.ensureUserStore(userID)
+	if _, ok := userItems[id]; !ok {
 		return ErrNotFound
 	}
-	delete(r.items, id)
+	delete(userItems, id)
 	return nil
+}
+
+func (r *Repository) ensureUserStore(userID string) map[string]Company {
+	store, ok := r.itemsByUser[userID]
+	if !ok {
+		store = map[string]Company{}
+		r.itemsByUser[userID] = store
+	}
+	return store
 }
 
 func newEntityID() string {
