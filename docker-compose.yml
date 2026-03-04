@@ -36,5 +36,27 @@ services:
     depends_on:
       - backend
 
+  backup:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-syukatsu}
+      DB_USER: ${DB_USER:-syukatsu_user}
+      DB_PASSWORD: ${DB_PASSWORD:-syukatsu_password}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_FILE_PREFIX: ${BACKUP_FILE_PREFIX:-syukatsu}
+    volumes:
+      - ${BACKUP_OUTPUT_DIR:-./backups}:/backups
+      - ./scripts/backup:/scripts/backup:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["/bin/sh", "/scripts/backup/backup-loop.sh"]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
