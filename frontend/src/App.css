@@ -598,6 +598,36 @@ button:disabled {
   color: #0d5c66;
 }
 
+.auth-panel h2 {
+  margin-bottom: 8px;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.auth-grid form {
+  border: 1px solid #d8e4f2;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fafdff;
+}
+
+.auth-grid h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #2b4f6e;
+}
+
+.auth-current {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .timeline-toolbar {
   display: grid;
   gap: 10px;

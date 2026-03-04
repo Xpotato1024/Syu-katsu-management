@@ -2,6 +2,7 @@ import { type FormEvent, useEffect } from "react"
 import "./App.css"
 import { apiBase, logoutURL } from "./constants"
 import { AgendaView } from "./components/AgendaView"
+import { AuthPanel } from "./components/AuthPanel"
 import { AppShell } from "./components/AppShell"
 import { CompaniesView } from "./components/CompaniesView"
 import { TimelineView } from "./components/TimelineView"
@@ -17,9 +18,10 @@ export function App() {
   const timeline = useTimeline({ companies: companies.companies })
 
   useEffect(() => {
+    void viewer.loadAuthConfig()
     void viewer.loadViewer()
     void companies.loadCompanies("", "")
-  }, [viewer.loadViewer, companies.loadCompanies])
+  }, [viewer.loadAuthConfig, viewer.loadViewer, companies.loadCompanies])
 
   function onCreateCompany(event: FormEvent) {
     event.preventDefault()
@@ -49,6 +51,17 @@ export function App() {
       onNavigate={navigation.navigateTo}
       onReload={onReload}
     >
+      <AuthPanel
+        apiBase={apiBase}
+        authConfig={viewer.authConfig}
+        viewer={viewer.viewer}
+        viewerError={viewer.viewerError}
+        onAuthChanged={() => {
+          void viewer.loadViewer()
+          void companies.loadCompanies(companies.filterName, companies.filterStatus)
+        }}
+      />
+
       {navigation.activeView === "companies" && (
         <CompaniesView
           companies={companies.companies}

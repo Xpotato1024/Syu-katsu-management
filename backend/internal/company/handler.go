@@ -21,6 +21,10 @@ func NewHandler(repo Store, authProvider *auth.Provider) *Handler {
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.health)
 	mux.HandleFunc("/me", h.me)
+	mux.HandleFunc("/auth/config", h.authConfig)
+	mux.HandleFunc("/auth/register", h.authRegister)
+	mux.HandleFunc("/auth/login", h.authLogin)
+	mux.HandleFunc("/auth/logout", h.authLogout)
 	mux.HandleFunc("/companies", h.companies)
 	mux.HandleFunc("/companies/", h.companyByID)
 }
@@ -40,6 +44,105 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, user)
+}
+
+type authConfigResponse struct {
+	Mode              string `json:"mode"`
+	AllowRegistration bool   `json:"allowRegistration"`
+}
+
+type registerRequest struct {
+	ID       string `json:"id"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+}
+
+type loginRequest struct {
+	ID       string `json:"id"`
+	Password string `json:"password"`
+}
+
+func (h *Handler) authConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, http.StatusOK, authConfigResponse{
+		Mode:              h.authProvider.Mode(),
+		AllowRegistration: h.authProvider.AllowRegistration(),
+	})
+}
+
+func (h *Handler) authRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req registerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+
+	user, token, err := h.authProvider.Register(r.Context(), req.ID, req.Password, req.Name, req.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrLocalDisabled):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "local auth is disabled"})
+		case errors.Is(err, auth.ErrRegistrationDisabled):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "registration is disabled"})
+		case errors.Is(err, auth.ErrUserAlreadyExists):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "user already exists"})
+		case errors.Is(err, auth.ErrInvalidCredentials):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id or password"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to register user"})
+		}
+		return
+	}
+
+	http.SetCookie(w, h.authProvider.SessionCookie(token))
+	writeJSON(w, http.StatusCreated, user)
+}
+
+func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req loginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+
+	user, token, err := h.authProvider.Login(r.Context(), req.ID, req.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrLocalDisabled):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "local auth is disabled"})
+		case errors.Is(err, auth.ErrInvalidCredentials):
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid id or password"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to login"})
+		}
+		return
+	}
+
+	http.SetCookie(w, h.authProvider.SessionCookie(token))
+	writeJSON(w, http.StatusOK, user)
+}
+
+func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	http.SetCookie(w, h.authProvider.ClearSessionCookie())
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) companies(w http.ResponseWriter, r *http.Request) {
