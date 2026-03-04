@@ -11,6 +11,8 @@
   - Docker / Go / TypeScript / DB を用いたシステム構成案
 - [implementation/roadmap.md](./implementation/roadmap.md)
   - 初期セットアップからMVPまでの実装ステップ
+- [implementation/bootstrap.md](./implementation/bootstrap.md)
+  - 現在の初期実装内容（API/Frontend/Compose の実装状況）
 
 ## 3. 課題・検討事項
 - [issues/open-questions.md](./issues/open-questions.md)
