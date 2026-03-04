@@ -1,9 +1,8 @@
 package company
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -39,16 +38,16 @@ func (h *Handler) companies(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 			return
 		}
-		created := h.repo.Create(Company{
-			ID:              newID(),
-			Name:            input.Name,
-			MypageLink:      input.MypageLink,
-			MypageID:        input.MypageID,
-			SelectionFlow:   input.SelectionFlow,
-			SelectionStatus: input.SelectionStatus,
-			ESContent:       input.ESContent,
-			ResearchContent: input.ResearchContent,
-		})
+
+		created, err := h.repo.Create(input)
+		if err != nil {
+			if errors.Is(err, ErrInvalidInput) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create company"})
+			return
+		}
 		writeJSON(w, http.StatusCreated, created)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -56,12 +55,31 @@ func (h *Handler) companies(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) companyByID(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/companies/")
-	if id == "" {
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/companies/"), "/")
+	if path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id is required"})
+		return
+	}
+	parts := strings.Split(path, "/")
+	companyID := parts[0]
+	if companyID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id is required"})
 		return
 	}
 
+	switch {
+	case len(parts) == 1:
+		h.handleCompanyResource(w, r, companyID)
+	case len(parts) == 2 && parts[1] == "steps":
+		h.handleAddStep(w, r, companyID)
+	case len(parts) == 3 && parts[1] == "steps":
+		h.handleUpdateStep(w, r, companyID, parts[2])
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid path"})
+	}
+}
+
+func (h *Handler) handleCompanyResource(w http.ResponseWriter, r *http.Request, id string) {
 	switch r.Method {
 	case http.MethodGet:
 		company, err := h.repo.GetByID(id)
@@ -77,8 +95,12 @@ func (h *Handler) companyByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updated, err := h.repo.Update(id, input)
-		if err == ErrNotFound {
+		if errors.Is(err, ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, ErrInvalidInput) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, updated)
@@ -94,14 +116,68 @@ func (h *Handler) companyByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) handleAddStep(w http.ResponseWriter, r *http.Request, companyID string) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input SelectionStepInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+
+	updated, err := h.repo.AddStep(companyID, input)
+	if errors.Is(err, ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, ErrInvalidInput) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to add step"})
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Handler) handleUpdateStep(w http.ResponseWriter, r *http.Request, companyID, stepID string) {
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if strings.TrimSpace(stepID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "step id is required"})
+		return
+	}
+
+	var input SelectionStepUpdateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+
+	updated, err := h.repo.UpdateStep(companyID, stepID, input)
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrStepNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, ErrInvalidInput) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update step"})
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
 }
