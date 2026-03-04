@@ -25,7 +25,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
 
 # Docker
 *.pid

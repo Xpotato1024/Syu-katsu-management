@@ -3,6 +3,7 @@ package company
 import (
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -14,16 +15,30 @@ type Repository struct {
 	items map[string]Company
 }
 
+type ListFilter struct {
+	Query           string
+	SelectionStatus string
+}
+
 func NewRepository() *Repository {
 	return &Repository{items: map[string]Company{}}
 }
 
-func (r *Repository) List() []Company {
+func (r *Repository) List(filter ListFilter) []Company {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	companies := make([]Company, 0, len(r.items))
+	query := strings.ToLower(strings.TrimSpace(filter.Query))
+	status := strings.TrimSpace(filter.SelectionStatus)
+
 	for _, c := range r.items {
+		if query != "" && !strings.Contains(strings.ToLower(c.Name), query) {
+			continue
+		}
+		if status != "" && c.SelectionStatus != status {
+			continue
+		}
 		companies = append(companies, c)
 	}
 	sort.Slice(companies, func(i, j int) bool {
