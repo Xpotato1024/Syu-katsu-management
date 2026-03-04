@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { companyStatusOptions, stepStatusOptions } from "../constants"
-import type { Company, StepDraft, StepEdit } from "../types"
+import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { toDateInputValue } from "../utils/date"
 import { newStepDraft } from "../utils/selection"
 
@@ -15,12 +15,14 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
   const [newSteps, setNewSteps] = useState<StepDraft[]>([newStepDraft()])
   const [stepDraftByCompany, setStepDraftByCompany] = useState<Record<string, StepDraft>>({})
   const [stepEdits, setStepEdits] = useState<Record<string, StepEdit>>({})
+  const [companyEdits, setCompanyEdits] = useState<Record<string, CompanyDetailEdit>>({})
   const [expandedCompanyIDs, setExpandedCompanyIDs] = useState<Record<string, boolean>>({})
   const [filterName, setFilterName] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [savingStepID, setSavingStepID] = useState("")
+  const [savingCompanyID, setSavingCompanyID] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
 
   const loadCompanies = useCallback(
@@ -51,6 +53,20 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
                   status: step.status || stepStatusOptions[0],
                   scheduledAt: toDateInputValue(step.scheduledAt)
                 }
+              }
+            }
+          }
+          return next
+        })
+        setCompanyEdits((prev) => {
+          const next = { ...prev }
+          for (const company of data) {
+            if (!next[company.id]) {
+              next[company.id] = {
+                mypageLink: company.mypageLink || "",
+                mypageId: company.mypageId || "",
+                researchContent: company.researchContent || "",
+                esContent: company.esContent || ""
               }
             }
           }
@@ -175,6 +191,98 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
     [apiBase, filterName, filterStatus, loadCompanies, stepEdits]
   )
 
+  const updateCompanyEdit = useCallback((companyID: string, patch: Partial<CompanyDetailEdit>) => {
+    setCompanyEdits((prev) => {
+      const current = prev[companyID] ?? {
+        mypageLink: "",
+        mypageId: "",
+        researchContent: "",
+        esContent: ""
+      }
+      return { ...prev, [companyID]: { ...current, ...patch } }
+    })
+  }, [])
+
+  const applyResearchTemplate = useCallback((companyID: string) => {
+    const template = [
+      "# 企業研究ノート",
+      "",
+      "## 基本情報",
+      "- 企業名:",
+      "- 業界:",
+      "- 創立:",
+      "- 本社所在地:",
+      "",
+      "## 企業理念・ビジョン",
+      "- ",
+      "",
+      "## 注力分野 / 主力事業",
+      "- ",
+      "",
+      "## 業績・成長性",
+      "- 売上:",
+      "- 利益:",
+      "- 成長率:",
+      "",
+      "## 競合比較",
+      "- 競合企業:",
+      "- 強み:",
+      "- 懸念点:",
+      "",
+      "## 志望動機メモ",
+      "- 共感ポイント:",
+      "- 活かせる経験:",
+      "",
+      "## 面接で確認したいこと",
+      "- "
+    ].join("\n")
+    updateCompanyEdit(companyID, { researchContent: template })
+  }, [updateCompanyEdit])
+
+  const saveCompanyDetail = useCallback(
+    async (companyID: string) => {
+      const company = companies.find((item) => item.id === companyID)
+      if (!company) return
+      const edit = companyEdits[companyID]
+      if (!edit) return
+
+      setSavingCompanyID(companyID)
+      setErrorMessage("")
+      try {
+        const response = await fetch(`${apiBase}/companies/${companyID}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: company.name,
+            mypageLink: edit.mypageLink,
+            mypageId: edit.mypageId,
+            selectionFlow: company.selectionFlow || "",
+            selectionStatus: company.selectionStatus,
+            selectionSteps: (company.selectionSteps || []).map((step) => ({
+              kind: step.kind,
+              title: step.title,
+              status: step.status,
+              scheduledAt: toDateInputValue(step.scheduledAt)
+            })),
+            esContent: edit.esContent,
+            researchContent: edit.researchContent
+          })
+        })
+        if (response.status === 401) {
+          setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
+          return
+        }
+        if (!response.ok) throw new Error(`failed to update company: ${response.status}`)
+        await loadCompanies(filterName, filterStatus)
+      } catch (_error) {
+        setErrorMessage("企業詳細の更新に失敗しました。")
+      } finally {
+        setSavingCompanyID("")
+      }
+    },
+    [apiBase, companies, companyEdits, filterName, filterStatus, loadCompanies]
+  )
+
   const toggleCompanyDetail = useCallback((companyID: string) => {
     setExpandedCompanyIDs((prev) => ({ ...prev, [companyID]: !prev[companyID] }))
   }, [])
@@ -227,6 +335,7 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
     newSteps,
     stepDraftByCompany,
     stepEdits,
+    companyEdits,
     expandedCompanyIDs,
     filterName,
     setFilterName,
@@ -235,6 +344,7 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
     loading,
     submitting,
     savingStepID,
+    savingCompanyID,
     errorMessage,
     loadCompanies,
     createCompany,
@@ -242,6 +352,9 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
     clearFilter,
     addStepToCompany,
     saveStep,
+    updateCompanyEdit,
+    applyResearchTemplate,
+    saveCompanyDetail,
     toggleCompanyDetail,
     updateNewStep,
     removeNewStep,

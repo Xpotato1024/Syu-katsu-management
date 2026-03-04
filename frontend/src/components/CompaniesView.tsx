@@ -1,6 +1,6 @@
 import { Fragment, type FormEvent } from "react"
 import { companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
-import type { Company, StepDraft, StepEdit } from "../types"
+import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { newStepDraft, resolveCurrentStepIndex, stepLabel, stepVisualState } from "../utils/selection"
 import { toDateInputValue } from "../utils/date"
 
@@ -17,6 +17,7 @@ type CompaniesViewProps = {
   newSteps: StepDraft[]
   stepDraftByCompany: Record<string, StepDraft>
   stepEdits: Record<string, StepEdit>
+  companyEdits: Record<string, CompanyDetailEdit>
   expandedCompanyIDs: Record<string, boolean>
   onFilterNameChange: (value: string) => void
   onFilterStatusChange: (value: string) => void
@@ -31,6 +32,10 @@ type CompaniesViewProps = {
   onToggleCompanyDetail: (companyID: string) => void
   onUpdateStepEdit: (stepID: string, patch: Partial<StepEdit>) => void
   onSaveStep: (companyID: string, stepID: string) => void
+  onUpdateCompanyEdit: (companyID: string, patch: Partial<CompanyDetailEdit>) => void
+  onApplyResearchTemplate: (companyID: string) => void
+  onSaveCompanyDetail: (companyID: string) => void
+  savingCompanyID: string
   onUpdateInlineDraft: (companyID: string, patch: Partial<StepDraft>) => void
   onAddStepToCompany: (companyID: string) => void
 }
@@ -48,6 +53,7 @@ export function CompaniesView({
   newSteps,
   stepDraftByCompany,
   stepEdits,
+  companyEdits,
   expandedCompanyIDs,
   onFilterNameChange,
   onFilterStatusChange,
@@ -62,6 +68,10 @@ export function CompaniesView({
   onToggleCompanyDetail,
   onUpdateStepEdit,
   onSaveStep,
+  onUpdateCompanyEdit,
+  onApplyResearchTemplate,
+  onSaveCompanyDetail,
+  savingCompanyID,
   onUpdateInlineDraft,
   onAddStepToCompany
 }: CompaniesViewProps) {
@@ -160,6 +170,12 @@ export function CompaniesView({
           const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null
           const isExpanded = !!expandedCompanyIDs[company.id]
           const inlineDraft = stepDraftByCompany[company.id] ?? newStepDraft("面接")
+          const companyEdit = companyEdits[company.id] ?? {
+            mypageLink: company.mypageLink || "",
+            mypageId: company.mypageId || "",
+            researchContent: company.researchContent || "",
+            esContent: company.esContent || ""
+          }
 
           return (
             <article key={company.id} className="company-card">
@@ -207,6 +223,60 @@ export function CompaniesView({
               {isExpanded && (
                 <div className="company-detail">
                   <p className="muted detail-caption">ステップ詳細を編集できます。フロー: {company.selectionFlow || "未設定"}</p>
+
+                  <section className="doc-editor">
+                    <h4>企業情報・ドキュメント</h4>
+                    <div className="row">
+                      <input
+                        value={companyEdit.mypageLink}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { mypageLink: e.target.value })}
+                        placeholder="エントリーページURL"
+                      />
+                      <input
+                        value={companyEdit.mypageId}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { mypageId: e.target.value })}
+                        placeholder="エントリーID"
+                      />
+                    </div>
+                    {companyEdit.mypageLink && (
+                      <a className="doc-link" href={companyEdit.mypageLink} target="_blank" rel="noreferrer">
+                        エントリーページを開く
+                      </a>
+                    )}
+
+                    <label className="doc-label" htmlFor={`research-${company.id}`}>
+                      企業研究ドキュメント（Markdown）
+                    </label>
+                    <div className="row">
+                      <button type="button" className="button-secondary" onClick={() => onApplyResearchTemplate(company.id)}>
+                        企業研究テンプレート挿入
+                      </button>
+                    </div>
+                    <textarea
+                      id={`research-${company.id}`}
+                      className="doc-textarea"
+                      value={companyEdit.researchContent}
+                      onChange={(e) => onUpdateCompanyEdit(company.id, { researchContent: e.target.value })}
+                      placeholder="# 企業研究ノート"
+                    />
+
+                    <label className="doc-label" htmlFor={`es-${company.id}`}>
+                      ESドキュメント（Markdown）
+                    </label>
+                    <textarea
+                      id={`es-${company.id}`}
+                      className="doc-textarea"
+                      value={companyEdit.esContent}
+                      onChange={(e) => onUpdateCompanyEdit(company.id, { esContent: e.target.value })}
+                      placeholder="# ES下書き"
+                    />
+
+                    <div className="actions">
+                      <button type="button" onClick={() => onSaveCompanyDetail(company.id)} disabled={savingCompanyID === company.id}>
+                        {savingCompanyID === company.id ? "保存中..." : "企業情報を保存"}
+                      </button>
+                    </div>
+                  </section>
 
                   <div className="step-list">
                     {steps.map((step) => {

@@ -9,9 +9,13 @@ export type SelectionStep = {
 export type Company = {
   id: string
   name: string
+  mypageLink?: string
+  mypageId?: string
   selectionStatus: string
   selectionFlow: string
   selectionSteps: SelectionStep[]
+  esContent?: string
+  researchContent?: string
 }
 
 export type StepDraft = {
@@ -23,6 +27,13 @@ export type StepDraft = {
 export type StepEdit = {
   status: string
   scheduledAt: string
+}
+
+export type CompanyDetailEdit = {
+  mypageLink: string
+  mypageId: string
+  researchContent: string
+  esContent: string
 }
 
 export type AuthUser = {

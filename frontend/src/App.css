@@ -257,6 +257,7 @@ body {
 
 input,
 select,
+textarea,
 button {
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -266,7 +267,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   background: #fff;
   color: var(--text-main);
 }
@@ -501,6 +503,40 @@ button:disabled {
   padding-top: 10px;
   display: grid;
   gap: 8px;
+}
+
+.doc-editor {
+  margin-top: 10px;
+  border-top: 1px dashed #d5deea;
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.doc-editor h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #284866;
+}
+
+.doc-label {
+  font-size: 13px;
+  color: #4f6782;
+  font-weight: 700;
+}
+
+.doc-textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.5;
+}
+
+.doc-link {
+  color: #0b5d66;
+  font-size: 13px;
+  text-decoration: underline;
 }
 
 .timeline-toolbar {
