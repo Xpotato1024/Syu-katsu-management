@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react"
+import type { ToastTone } from "../hooks/useToast"
 import type { AuthConfig, AuthUser } from "../types"
 
 type AuthPanelProps = {
@@ -7,10 +8,11 @@ type AuthPanelProps = {
   authConfig: AuthConfig
   viewer: AuthUser | null
   viewerError: string
-  onAuthChanged: () => void
+  onAuthChanged: () => void | Promise<void>
+  onToast: (message: string, tone?: ToastTone) => void
 }
 
-export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, onAuthChanged }: AuthPanelProps) {
+export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, onAuthChanged, onToast }: AuthPanelProps) {
   const [loginID, setLoginID] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
   const [registerID, setRegisterID] = useState("")
@@ -36,9 +38,11 @@ export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, 
       if (!response.ok) throw new Error("failed")
       setLoginPassword("")
       setAuthMessage("ログインしました。")
-      onAuthChanged()
+      onToast("ログインしました。", "success")
+      await Promise.resolve(onAuthChanged())
     } catch (_error) {
       setAuthMessage("ログインに失敗しました。")
+      onToast("ログインに失敗しました。", "error")
     } finally {
       setLoading(false)
     }
@@ -62,9 +66,11 @@ export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, 
       if (!response.ok) throw new Error("failed")
       setRegisterPassword("")
       setAuthMessage("ユーザー登録が完了し、ログインしました。")
-      onAuthChanged()
+      onToast("ユーザー登録が完了し、ログインしました。", "success")
+      await Promise.resolve(onAuthChanged())
     } catch (_error) {
       setAuthMessage("ユーザー登録に失敗しました。")
+      onToast("ユーザー登録に失敗しました。", "error")
     } finally {
       setLoading(false)
     }
@@ -74,9 +80,14 @@ export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, 
     setLoading(true)
     setAuthMessage("")
     try {
-      await fetch(`${apiBase}/auth/logout`, { method: "POST" })
+      const response = await fetch(`${apiBase}/auth/logout`, { method: "POST" })
+      if (!response.ok) throw new Error("failed")
       setAuthMessage("ログアウトしました。")
-      onAuthChanged()
+      onToast("ログアウトしました。", "success")
+      await Promise.resolve(onAuthChanged())
+    } catch (_error) {
+      setAuthMessage("ログアウトに失敗しました。")
+      onToast("ログアウトに失敗しました。", "error")
     } finally {
       setLoading(false)
     }

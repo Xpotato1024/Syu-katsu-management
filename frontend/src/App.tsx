@@ -6,23 +6,26 @@ import { AuthPanel } from "./components/AuthPanel"
 import { AppShell } from "./components/AppShell"
 import { CompaniesView } from "./components/CompaniesView"
 import { TimelineView } from "./components/TimelineView"
+import { ToastViewport } from "./components/ToastViewport"
 import { useCompanyManagement } from "./hooks/useCompanyManagement"
 import { useNavigation } from "./hooks/useNavigation"
 import { useTheme } from "./hooks/useTheme"
 import { useTimeline } from "./hooks/useTimeline"
+import { useToast } from "./hooks/useToast"
 import { useViewer } from "./hooks/useViewer"
 
 export function App() {
-  const viewer = useViewer({ apiBase })
+  const toast = useToast()
+  const viewer = useViewer({ apiBase, onToast: toast.pushToast })
   const navigation = useNavigation()
   const theme = useTheme()
-  const companies = useCompanyManagement({ apiBase })
+  const companies = useCompanyManagement({ apiBase, onToast: toast.pushToast })
   const timeline = useTimeline({ companies: companies.companies })
 
   useEffect(() => {
     void viewer.loadAuthConfig()
-    void viewer.loadViewer()
-    void companies.loadCompanies("", "")
+    void viewer.loadViewer({ silent: true })
+    void companies.loadCompanies("", "", { silent: true })
   }, [viewer.loadAuthConfig, viewer.loadViewer, companies.loadCompanies])
 
   function onCreateCompany(event: FormEvent) {
@@ -37,19 +40,29 @@ export function App() {
 
   function onReload() {
     navigation.closeMenu()
-    void viewer.loadViewer()
-    void companies.loadCompanies(companies.filterName, companies.filterStatus)
+    void (async () => {
+      const [viewerOk, companiesOk] = await Promise.all([
+        viewer.loadViewer({ silent: true }),
+        companies.loadCompanies(companies.filterName, companies.filterStatus, { silent: true })
+      ])
+
+      if (viewerOk && companiesOk) {
+        toast.pushToast("情報を更新しました。", "success")
+      } else {
+        toast.pushToast("情報更新に失敗しました。", "error")
+      }
+    })()
   }
 
   return (
     <AppShell
       isMenuOpen={navigation.isMenuOpen}
       activeView={navigation.activeView}
+      theme={theme.theme}
       viewer={viewer.viewer}
       viewerError={viewer.viewerError}
       logoutURL={logoutURL}
       onToggleMenu={navigation.toggleMenu}
-      theme={theme.theme}
       onToggleTheme={theme.toggleTheme}
       onCloseMenu={navigation.closeMenu}
       onNavigate={navigation.navigateTo}
@@ -61,9 +74,10 @@ export function App() {
         authConfig={viewer.authConfig}
         viewer={viewer.viewer}
         viewerError={viewer.viewerError}
+        onToast={toast.pushToast}
         onAuthChanged={() => {
-          void viewer.loadViewer()
-          void companies.loadCompanies(companies.filterName, companies.filterStatus)
+          void viewer.loadViewer({ silent: true })
+          void companies.loadCompanies(companies.filterName, companies.filterStatus, { silent: true })
         }}
       />
 
@@ -138,6 +152,8 @@ export function App() {
           companiesCount={companies.companies.length}
         />
       )}
+
+      <ToastViewport toasts={toast.toasts} onDismiss={toast.dismissToast} />
     </AppShell>
   )
 }

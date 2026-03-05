@@ -3,12 +3,18 @@ import { companyStatusOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { toDateInputValue } from "../utils/date"
 import { newStepDraft } from "../utils/selection"
+import type { ToastTone } from "./useToast"
 
 type UseCompanyManagementArgs = {
   apiBase: string
+  onToast?: (message: string, tone?: ToastTone) => void
 }
 
-export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
+type LoadCompaniesOptions = {
+  silent?: boolean
+}
+
+export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementArgs) {
   const [companies, setCompanies] = useState<Company[]>([])
   const [nameInput, setNameInput] = useState("")
   const [newCompanyStatus, setNewCompanyStatus] = useState<string>(companyStatusOptions[0])
@@ -26,7 +32,8 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
   const [errorMessage, setErrorMessage] = useState("")
 
   const loadCompanies = useCallback(
-    async (nameQuery = "", status = "") => {
+    async (nameQuery = "", status = "", options: LoadCompaniesOptions = {}): Promise<boolean> => {
+      const { silent = false } = options
       const params = new URLSearchParams()
       if (nameQuery.trim()) params.set("q", nameQuery.trim())
       if (status) params.set("status", status)
@@ -38,8 +45,12 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
         const response = await fetch(url)
         if (response.status === 401) {
           setCompanies([])
-          setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
-          return
+          const message = "ログインセッションがありません。Autheliaでログインしてください。"
+          setErrorMessage(message)
+          if (!silent) {
+            onToast?.(message, "error")
+          }
+          return false
         }
         if (!response.ok) throw new Error(`failed to load companies: ${response.status}`)
         const data = (await response.json()) as Company[]
@@ -72,17 +83,26 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
           }
           return next
         })
+        return true
       } catch (_error) {
-        setErrorMessage("企業一覧の取得に失敗しました。")
+        const message = "企業一覧の取得に失敗しました。"
+        setErrorMessage(message)
+        if (!silent) {
+          onToast?.(message, "error")
+        }
+        return false
       } finally {
         setLoading(false)
       }
     },
-    [apiBase]
+    [apiBase, onToast]
   )
 
   const createCompany = useCallback(async () => {
-    if (!nameInput.trim()) return
+    if (!nameInput.trim()) {
+      onToast?.("企業名を入力してください。", "error")
+      return
+    }
 
     setSubmitting(true)
     setErrorMessage("")
@@ -105,12 +125,16 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
         })
       })
       if (response.status === 401) {
-        setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
+        const message = "ログインセッションがありません。Autheliaでログインしてください。"
+        setErrorMessage(message)
+        onToast?.(message, "error")
         return
       }
       if (!response.ok) throw new Error(`failed to create company: ${response.status}`)
     } catch (_error) {
-      setErrorMessage("企業の追加に失敗しました。")
+      const message = "企業の追加に失敗しました。"
+      setErrorMessage(message)
+      onToast?.(message, "error")
       return
     } finally {
       setSubmitting(false)
@@ -119,18 +143,25 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
     setNameInput("")
     setNewCompanyStatus(companyStatusOptions[0])
     setNewSteps([newStepDraft()])
-    await loadCompanies(filterName, filterStatus)
-  }, [apiBase, filterName, filterStatus, loadCompanies, nameInput, newCompanyStatus, newSteps])
+    await loadCompanies(filterName, filterStatus, { silent: true })
+    onToast?.("企業を追加しました。", "success")
+  }, [apiBase, filterName, filterStatus, loadCompanies, nameInput, newCompanyStatus, newSteps, onToast])
 
   const applyFilter = useCallback(async () => {
-    await loadCompanies(filterName, filterStatus)
-  }, [filterName, filterStatus, loadCompanies])
+    const ok = await loadCompanies(filterName, filterStatus, { silent: true })
+    if (ok) {
+      onToast?.("企業一覧を更新しました。", "info")
+    }
+  }, [filterName, filterStatus, loadCompanies, onToast])
 
   const clearFilter = useCallback(async () => {
     setFilterName("")
     setFilterStatus("")
-    await loadCompanies("", "")
-  }, [loadCompanies])
+    const ok = await loadCompanies("", "", { silent: true })
+    if (ok) {
+      onToast?.("絞り込みを解除しました。", "info")
+    }
+  }, [loadCompanies, onToast])
 
   const addStepToCompany = useCallback(
     async (companyID: string) => {
@@ -147,17 +178,22 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
           })
         })
         if (response.status === 401) {
-          setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
+          const message = "ログインセッションがありません。Autheliaでログインしてください。"
+          setErrorMessage(message)
+          onToast?.(message, "error")
           return
         }
         if (!response.ok) throw new Error(`failed to add step: ${response.status}`)
         setStepDraftByCompany((prev) => ({ ...prev, [companyID]: newStepDraft("面接") }))
-        await loadCompanies(filterName, filterStatus)
+        await loadCompanies(filterName, filterStatus, { silent: true })
+        onToast?.("選考ステップを追加しました。", "success")
       } catch (_error) {
-        setErrorMessage("選考ステップの追加に失敗しました。")
+        const message = "選考ステップの追加に失敗しました。"
+        setErrorMessage(message)
+        onToast?.(message, "error")
       }
     },
-    [apiBase, filterName, filterStatus, loadCompanies, stepDraftByCompany]
+    [apiBase, filterName, filterStatus, loadCompanies, onToast, stepDraftByCompany]
   )
 
   const saveStep = useCallback(
@@ -177,18 +213,23 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
           })
         })
         if (response.status === 401) {
-          setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
+          const message = "ログインセッションがありません。Autheliaでログインしてください。"
+          setErrorMessage(message)
+          onToast?.(message, "error")
           return
         }
         if (!response.ok) throw new Error(`failed to update step: ${response.status}`)
-        await loadCompanies(filterName, filterStatus)
+        await loadCompanies(filterName, filterStatus, { silent: true })
+        onToast?.("選考ステップを保存しました。", "success")
       } catch (_error) {
-        setErrorMessage("選考ステップの更新に失敗しました。")
+        const message = "選考ステップの更新に失敗しました。"
+        setErrorMessage(message)
+        onToast?.(message, "error")
       } finally {
         setSavingStepID("")
       }
     },
-    [apiBase, filterName, filterStatus, loadCompanies, stepEdits]
+    [apiBase, filterName, filterStatus, loadCompanies, onToast, stepEdits]
   )
 
   const updateCompanyEdit = useCallback((companyID: string, patch: Partial<CompanyDetailEdit>) => {
@@ -269,18 +310,23 @@ export function useCompanyManagement({ apiBase }: UseCompanyManagementArgs) {
           })
         })
         if (response.status === 401) {
-          setErrorMessage("ログインセッションがありません。Autheliaでログインしてください。")
+          const message = "ログインセッションがありません。Autheliaでログインしてください。"
+          setErrorMessage(message)
+          onToast?.(message, "error")
           return
         }
         if (!response.ok) throw new Error(`failed to update company: ${response.status}`)
-        await loadCompanies(filterName, filterStatus)
+        await loadCompanies(filterName, filterStatus, { silent: true })
+        onToast?.("企業情報を保存しました。", "success")
       } catch (_error) {
-        setErrorMessage("企業詳細の更新に失敗しました。")
+        const message = "企業詳細の更新に失敗しました。"
+        setErrorMessage(message)
+        onToast?.(message, "error")
       } finally {
         setSavingCompanyID("")
       }
     },
-    [apiBase, companies, companyEdits, filterName, filterStatus, loadCompanies]
+    [apiBase, companies, companyEdits, filterName, filterStatus, loadCompanies, onToast]
   )
 
   const toggleCompanyDetail = useCallback((companyID: string) => {

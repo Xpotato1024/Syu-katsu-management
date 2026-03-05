@@ -13,6 +13,8 @@
   - 初期セットアップからMVPまでの実装ステップ
 - [implementation/bootstrap.md](./implementation/bootstrap.md)
   - 現在の初期実装内容（API/Frontend/Compose の実装状況）
+- [implementation/ui-guidelines-and-gui-test.md](./implementation/ui-guidelines-and-gui-test.md)
+  - UIデザイン方針、ダークモード実装ルール、トースト設計、GUIテスト手順
 
 ## 3. 課題・検討事項
 - [issues/open-questions.md](./issues/open-questions.md)
