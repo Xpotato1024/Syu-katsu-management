@@ -38,13 +38,13 @@ if [ "$COUNT" -le 0 ]; then
   exit 1
 fi
 
-BACKEND_PORT="$(read_env_value BACKEND_HOST_PORT 18080)"
-AUTH_MODE="$(read_env_value AUTH_MODE none)"
-AUTH_PROXY_USER_HEADER="$(read_env_value AUTH_PROXY_USER_HEADER X-Forwarded-User)"
-AUTH_PROXY_EMAIL_HEADER="$(read_env_value AUTH_PROXY_EMAIL_HEADER X-Forwarded-Email)"
-AUTH_DEV_USER_ID="$(read_env_value AUTH_DEV_USER_ID local-dev)"
-AUTH_DEV_USER_EMAIL="$(read_env_value AUTH_DEV_USER_EMAIL local@example.com)"
-SEED_PREFIX="$(read_env_value DEV_SEED_PREFIX Dev検証企業)"
+BACKEND_PORT="${BACKEND_HOST_PORT:-$(read_env_value BACKEND_HOST_PORT 18080)}"
+AUTH_MODE="${AUTH_MODE:-$(read_env_value AUTH_MODE none)}"
+AUTH_PROXY_USER_HEADER="${AUTH_PROXY_USER_HEADER:-$(read_env_value AUTH_PROXY_USER_HEADER X-Forwarded-User)}"
+AUTH_PROXY_EMAIL_HEADER="${AUTH_PROXY_EMAIL_HEADER:-$(read_env_value AUTH_PROXY_EMAIL_HEADER X-Forwarded-Email)}"
+AUTH_DEV_USER_ID="${AUTH_DEV_USER_ID:-$(read_env_value AUTH_DEV_USER_ID local-dev)}"
+AUTH_DEV_USER_EMAIL="${AUTH_DEV_USER_EMAIL:-$(read_env_value AUTH_DEV_USER_EMAIL local@example.com)}"
+SEED_PREFIX="${DEV_SEED_PREFIX:-$(read_env_value DEV_SEED_PREFIX Dev検証企業)}"
 BATCH_TAG="$(date +%Y%m%d%H%M%S)"
 
 headers=()
