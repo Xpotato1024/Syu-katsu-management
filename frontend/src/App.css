@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg-top: #eef6ff;
   --bg-bottom: #fff4de;
   --panel: rgba(255, 255, 255, 0.94);
@@ -13,6 +14,22 @@
   --topbar-text: #eaf4ff;
 }
 
+:root.dark {
+  color-scheme: dark;
+  --bg-top: #0b1220;
+  --bg-bottom: #101d35;
+  --panel: rgba(14, 24, 42, 0.9);
+  --line: #2f4058;
+  --text-main: #dce7f6;
+  --text-sub: #96a7bf;
+  --accent: #14a39d;
+  --accent-soft: rgba(20, 163, 157, 0.18);
+  --warn: #ef6f6f;
+  --shadow: 0 16px 34px rgba(4, 9, 20, 0.45);
+  --topbar: #020b1c;
+  --topbar-text: #dce7f6;
+}
+
 *,
 *::before,
 *::after {
@@ -25,6 +42,12 @@ body {
   font-family: "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
   background: radial-gradient(circle at 0% 0%, #d7f3ff 0%, transparent 45%),
     radial-gradient(circle at 100% 15%, #ffe8c6 0%, transparent 40%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+.dark body {
+  background: radial-gradient(circle at 0% 0%, rgba(20, 163, 157, 0.2) 0%, transparent 42%),
+    radial-gradient(circle at 100% 8%, rgba(59, 130, 246, 0.18) 0%, transparent 38%),
     linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
 }
 
@@ -107,6 +130,31 @@ body {
   max-width: min(260px, 30vw);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.theme-toggle {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 7px 11px;
+  font-size: 12px;
+  color: #ecf8ff;
+  background: rgba(255, 255, 255, 0.16);
+  min-height: 34px;
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.theme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ecf8ff;
+  display: inline-block;
+}
+
+.dark .theme-dot {
+  background: #facc15;
 }
 
 .drawer {
@@ -976,6 +1024,177 @@ button:focus-visible {
   font-size: 11px;
   background: #f6fbff;
   color: #2b5f7c;
+}
+
+.toast-viewport {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 90;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 20px));
+}
+
+.toast {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border-radius: 10px;
+  border: 1px solid #d1deed;
+  background: rgba(250, 253, 255, 0.97);
+  box-shadow: 0 10px 24px rgba(19, 33, 52, 0.18);
+  padding: 10px 10px 10px 12px;
+  animation: rise 180ms ease-out both;
+}
+
+.toast p {
+  margin: 0;
+  font-size: 13px;
+  color: #203447;
+  line-height: 1.4;
+}
+
+.toast-info {
+  border-left: 4px solid #2563eb;
+}
+
+.toast-success {
+  border-left: 4px solid #16a34a;
+}
+
+.toast-error {
+  border-left: 4px solid #dc2626;
+}
+
+.toast-close {
+  margin-left: auto;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: #5c728a;
+  padding: 0 4px;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.toast-close:hover,
+.toast-close:active {
+  transform: none;
+  filter: none;
+  color: #1f3346;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background: #111c31;
+  color: var(--text-main);
+}
+
+.dark .topbar {
+  border-color: #254362;
+}
+
+.dark .drawer,
+.dark .drawer-link,
+.dark .account-card,
+.dark .hero,
+.dark .company-card,
+.dark .flow-strip,
+.dark .flow-node,
+.dark .step-item,
+.dark .inline-step-add,
+.dark .doc-preview,
+.dark .auth-grid form,
+.dark .auth-note,
+.dark .timeline-scroll,
+.dark .timeline-company,
+.dark .timeline-header,
+.dark .agenda-day,
+.dark .agenda-day-head,
+.dark .timeline-event,
+.dark .month-badge {
+  border-color: var(--line);
+  color: var(--text-main);
+  background: rgba(16, 27, 45, 0.88);
+}
+
+.dark .hero {
+  background: linear-gradient(125deg, rgba(17, 65, 95, 0.45), rgba(13, 62, 57, 0.42) 58%, rgba(88, 64, 22, 0.35));
+}
+
+.dark .flow-node.pending {
+  background: rgba(17, 28, 46, 0.88);
+}
+
+.dark .flow-node.done {
+  border-color: #2f8f5d;
+  background: rgba(25, 76, 51, 0.4);
+}
+
+.dark .flow-node.stopped {
+  border-color: #995859;
+  background: rgba(112, 36, 42, 0.35);
+}
+
+.dark .flow-current,
+.dark .doc-editor h4,
+.dark .auth-grid h3 {
+  color: #c5d4e8;
+}
+
+.dark .muted,
+.dark .doc-label,
+.dark .agenda-company,
+.dark .timeline-company small,
+.dark .timeline-header small,
+.dark .site-footer,
+.dark .account-card small {
+  color: var(--text-sub);
+}
+
+.dark .site-footer a,
+.dark .doc-link {
+  color: #52d7c8;
+}
+
+.dark .badge,
+.dark .kind,
+.dark .agenda-company-status,
+.dark .agenda-step-status,
+.dark .step-count {
+  border-color: #2b6b75;
+  background: rgba(18, 72, 78, 0.38);
+  color: #95ebe1;
+}
+
+.dark .button-secondary,
+.dark .auth-link {
+  background: rgba(19, 79, 86, 0.4);
+  color: #93ebe0;
+  border-color: #2c8087;
+}
+
+.dark .toast {
+  border-color: #2b3d56;
+  background: rgba(12, 20, 35, 0.94);
+  box-shadow: 0 14px 28px rgba(3, 7, 17, 0.55);
+}
+
+.dark .toast p {
+  color: #d5e3f6;
+}
+
+.dark .toast-close {
+  color: #a0b5cc;
+}
+
+.dark .toast-close:hover,
+.dark .toast-close:active {
+  color: #d6e5f8;
 }
 
 @keyframes rise {
