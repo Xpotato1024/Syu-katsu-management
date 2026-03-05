@@ -1,4 +1,6 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
+import { appName, appVersion } from "../constants"
+import { TermsDialog } from "./TermsDialog"
 import { viewLabel } from "../utils/view"
 import type { AuthUser, ViewKey } from "../types"
 
@@ -31,6 +33,8 @@ export function AppShell({
   onNavigate,
   onReload
 }: AppShellProps) {
+  const [isTermsOpen, setIsTermsOpen] = useState(false)
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -122,16 +126,26 @@ export function AppShell({
       {children}
 
       <footer className="site-footer">
-        <p>Copyright (c) 2026 Xpotato1024</p>
-        <p>
-          License: <a href="https://opensource.org/license/mit/" target="_blank" rel="noreferrer">MIT</a> |{" "}
-          GitHub:{" "}
-          <a href="https://github.com/Xpotato1024/Syu-katsu-management" target="_blank" rel="noreferrer">
-            Xpotato1024/Syu-katsu-management
-          </a>
+        <p className="footer-brand">
+          {appName}
+          <span className="footer-version">{appVersion}</span>
         </p>
-        <p className="muted">免責: 本アプリの情報は就活支援目的であり、内容の正確性・完全性は保証しません。</p>
+        <p className="footer-subtitle">Open Source SaaS-style Job Hunting Tracker</p>
+        <div className="footer-links">
+          <a href="https://github.com/Xpotato1024/Syu-katsu-management" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <a href="https://opensource.org/license/mit/" target="_blank" rel="noreferrer">
+            MIT License
+          </a>
+          <button type="button" className="footer-link-button" onClick={() => setIsTermsOpen(true)}>
+            利用規約
+          </button>
+        </div>
+        <p className="footer-copy">Copyright (c) 2026 Xpotato1024</p>
       </footer>
+
+      <TermsDialog open={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
     </main>
   )
 }
