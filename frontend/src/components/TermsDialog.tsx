@@ -25,7 +25,7 @@ export function TermsDialog({ open, onClose }: TermsDialogProps) {
         <div className="terms-content">
           <section className="terms-section">
             <h3>第1条（適用）</h3>
-            <p>本規約は、就活フロー管理アプリ（以下「本サービス」）の利用に関する条件を定めるものです。</p>
+            <p>本規約は、就活マネジメント（以下「本サービス」）の利用に関する条件を定めるものです。</p>
           </section>
 
           <section className="terms-section">

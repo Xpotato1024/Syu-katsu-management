@@ -89,6 +89,13 @@ body {
   opacity: 0.88;
 }
 
+.topbar-title .topbar-by {
+  margin: 4px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.84;
+}
+
 .icon-button {
   width: 40px;
   height: 40px;
@@ -1540,6 +1547,10 @@ button:focus-visible {
   }
 
   .topbar-title .eyebrow {
+    font-size: 10px;
+  }
+
+  .topbar-title .topbar-by {
     font-size: 10px;
   }
 

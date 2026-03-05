@@ -1,7 +1,9 @@
 export const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api"
 export const logoutURL = import.meta.env.VITE_LOGOUT_URL ?? ""
 export const loginURL = import.meta.env.VITE_LOGIN_URL ?? ""
-export const appName = "Syu-katsu Management"
+export const appName = "就活マネジメント"
+export const appTitleEn = "Job Hunt Manager"
+export const appByline = "by xpotato.net"
 export const appVersion = import.meta.env.VITE_APP_VERSION ?? "v0.3.5-next"
 
 export const companyStatusOptions = ["未着手", "選考中", "内定", "お見送り", "辞退"] as const

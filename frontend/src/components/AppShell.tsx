@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { appName, appVersion } from "../constants"
+import { appByline, appName, appTitleEn, appVersion } from "../constants"
 import { TermsDialog } from "./TermsDialog"
 import { viewLabel } from "../utils/view"
 import type { AuthUser, ViewKey } from "../types"
@@ -51,8 +51,9 @@ export function AppShell({
           <span />
         </button>
         <div className="topbar-title">
-          <p className="eyebrow">Job Hunting Tracker</p>
-          <h1>就活フロー管理</h1>
+          <p className="eyebrow">{appTitleEn}</p>
+          <h1>{appName}</h1>
+          <p className="topbar-by">{appByline}</p>
         </div>
         <div className="topbar-meta">
           <span className="view-chip">{viewLabel(activeView)}</span>
@@ -130,7 +131,9 @@ export function AppShell({
           {appName}
           <span className="footer-version">{appVersion}</span>
         </p>
-        <p className="footer-subtitle">Open Source SaaS-style Job Hunting Tracker</p>
+        <p className="footer-subtitle">
+          {appTitleEn} · {appByline}
+        </p>
         <div className="footer-links">
           <a href="https://github.com/Xpotato1024/Syu-katsu-management" target="_blank" rel="noreferrer">
             GitHub

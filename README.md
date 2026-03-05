@@ -1,7 +1,10 @@
-# Syu-katsu Management
+# 就活マネジメント（Syu-katsu Management）
 
 就活で利用する企業ごとの選考情報を管理するWebアプリです。  
 Go + TypeScript + PostgreSQL を Docker で動かす構成を採用しています。
+
+- 表示名（日本語）: `就活マネジメント`
+- 表示名（英語）: `Job Hunt Manager`
 
 ## リリース
 - 現在のリリースバージョン: `v0.3.0`
