@@ -8,12 +8,14 @@ import { CompaniesView } from "./components/CompaniesView"
 import { TimelineView } from "./components/TimelineView"
 import { useCompanyManagement } from "./hooks/useCompanyManagement"
 import { useNavigation } from "./hooks/useNavigation"
+import { useTheme } from "./hooks/useTheme"
 import { useTimeline } from "./hooks/useTimeline"
 import { useViewer } from "./hooks/useViewer"
 
 export function App() {
   const viewer = useViewer({ apiBase })
   const navigation = useNavigation()
+  const theme = useTheme()
   const companies = useCompanyManagement({ apiBase })
   const timeline = useTimeline({ companies: companies.companies })
 
@@ -47,6 +49,8 @@ export function App() {
       viewerError={viewer.viewerError}
       logoutURL={logoutURL}
       onToggleMenu={navigation.toggleMenu}
+      theme={theme.theme}
+      onToggleTheme={theme.toggleTheme}
       onCloseMenu={navigation.closeMenu}
       onNavigate={navigation.navigateTo}
       onReload={onReload}

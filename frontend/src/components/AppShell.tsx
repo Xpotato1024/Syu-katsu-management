@@ -6,10 +6,12 @@ type AppShellProps = {
   children: ReactNode
   isMenuOpen: boolean
   activeView: ViewKey
+  theme: "light" | "dark"
   viewer: AuthUser | null
   viewerError: string
   logoutURL: string
   onToggleMenu: () => void
+  onToggleTheme: () => void
   onCloseMenu: () => void
   onNavigate: (view: ViewKey) => void
   onReload: () => void
@@ -19,10 +21,12 @@ export function AppShell({
   children,
   isMenuOpen,
   activeView,
+  theme,
   viewer,
   viewerError,
   logoutURL,
   onToggleMenu,
+  onToggleTheme,
   onCloseMenu,
   onNavigate,
   onReload
@@ -49,6 +53,10 @@ export function AppShell({
         <div className="topbar-meta">
           <span className="view-chip">{viewLabel(activeView)}</span>
           <span className="user-chip">{viewer?.name || viewer?.id || "ゲスト"}</span>
+          <button type="button" className="theme-toggle" onClick={onToggleTheme} aria-label="テーマ切り替え">
+            <span className="theme-dot" />
+            {theme === "dark" ? "Dark" : "Light"}
+          </button>
         </div>
       </header>
 
@@ -80,6 +88,9 @@ export function AppShell({
         <div className="drawer-divider" />
         <div className="drawer-group">
           <p className="drawer-subtitle">アカウント</p>
+          <button type="button" className="drawer-item" onClick={onToggleTheme}>
+            テーマ: {theme === "dark" ? "ダーク" : "ライト"}
+          </button>
           {viewer ? (
             <div className="account-card">
               <strong>{viewer.name || viewer.id}</strong>
