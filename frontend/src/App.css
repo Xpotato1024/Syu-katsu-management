@@ -628,6 +628,27 @@ button:disabled {
   justify-content: space-between;
 }
 
+.auth-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid #9fd8df;
+  background: #e4f8fb;
+  color: #145f67;
+  text-decoration: none;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.auth-note {
+  border: 1px solid #d8e4f2;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fafdff;
+}
+
 .timeline-toolbar {
   display: grid;
   gap: 10px;

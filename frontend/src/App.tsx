@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect } from "react"
 import "./App.css"
-import { apiBase, logoutURL } from "./constants"
+import { apiBase, loginURL, logoutURL } from "./constants"
 import { AgendaView } from "./components/AgendaView"
 import { AuthPanel } from "./components/AuthPanel"
 import { AppShell } from "./components/AppShell"
@@ -53,6 +53,7 @@ export function App() {
     >
       <AuthPanel
         apiBase={apiBase}
+        loginURL={loginURL}
         authConfig={viewer.authConfig}
         viewer={viewer.viewer}
         viewerError={viewer.viewerError}

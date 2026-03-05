@@ -3,13 +3,14 @@ import type { AuthConfig, AuthUser } from "../types"
 
 type AuthPanelProps = {
   apiBase: string
+  loginURL: string
   authConfig: AuthConfig
   viewer: AuthUser | null
   viewerError: string
   onAuthChanged: () => void
 }
 
-export function AuthPanel({ apiBase, authConfig, viewer, viewerError, onAuthChanged }: AuthPanelProps) {
+export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, onAuthChanged }: AuthPanelProps) {
   const [loginID, setLoginID] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
   const [registerID, setRegisterID] = useState("")
@@ -99,7 +100,14 @@ export function AuthPanel({ apiBase, authConfig, viewer, viewerError, onAuthChan
         </div>
       )}
       {!viewer && authConfig.mode === "proxy_header" && (
-        <p className="muted">{viewerError || "Authelia 側でログイン後に再読み込みしてください。"}</p>
+        <div className="stack">
+          <p className="muted">{viewerError || "Authelia 側でログイン後に再読み込みしてください。"}</p>
+          {loginURL && (
+            <a className="auth-link" href={loginURL}>
+              Autheliaでログイン
+            </a>
+          )}
+        </div>
       )}
       {!viewer && authConfig.mode === "local" && (
         <div className="auth-grid">
@@ -128,6 +136,13 @@ export function AuthPanel({ apiBase, authConfig, viewer, viewerError, onAuthChan
                 登録
               </button>
             </form>
+          )}
+          {!authConfig.allowRegistration && (
+            <div className="stack auth-note">
+              <h3>ユーザー登録</h3>
+              <p className="muted">この環境ではアプリ内登録が無効化されています。</p>
+              <p className="muted">管理者にユーザー作成を依頼するか、Authelia連携モードを利用してください。</p>
+            </div>
           )}
         </div>
       )}
