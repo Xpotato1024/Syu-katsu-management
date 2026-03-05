@@ -128,41 +128,48 @@ export function CompaniesView({
           </div>
 
           <div className="step-builder">
-            <p>初期選考フロー</p>
-            {newSteps.map((step, index) => (
-              <div className="row" key={`new-step-${index}`}>
-                <select value={step.kind} onChange={(e) => onUpdateNewStep(index, { kind: e.target.value })}>
-                  {stepKindOptions.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={step.title}
-                  onChange={(e) => onUpdateNewStep(index, { title: e.target.value })}
-                  placeholder="表示名（任意）"
-                />
-                <select value={step.status} onChange={(e) => onUpdateNewStep(index, { status: e.target.value })}>
-                  {stepStatusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() => onRemoveNewStep(index)}
-                  disabled={newSteps.length <= 1}
-                >
-                  削除
-                </button>
-              </div>
-            ))}
-            <button type="button" className="button-secondary" onClick={onAddNewStep}>
-              ステップ追加
-            </button>
+            <div className="step-builder-header">
+              <p>初期選考フロー</p>
+              <span className="step-count">{newSteps.length} step</span>
+            </div>
+            <div className="step-builder-list">
+              {newSteps.map((step, index) => (
+                <div className="step-builder-row" key={`new-step-${index}`}>
+                  <select value={step.kind} onChange={(e) => onUpdateNewStep(index, { kind: e.target.value })}>
+                    {stepKindOptions.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {kind}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={step.title}
+                    onChange={(e) => onUpdateNewStep(index, { title: e.target.value })}
+                    placeholder="表示名（任意）"
+                  />
+                  <select value={step.status} onChange={(e) => onUpdateNewStep(index, { status: e.target.value })}>
+                    {stepStatusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="button-danger"
+                    onClick={() => onRemoveNewStep(index)}
+                    disabled={newSteps.length <= 1}
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="step-builder-actions">
+              <button type="button" className="button-secondary button-add-step" onClick={onAddNewStep}>
+                + ステップ追加
+              </button>
+            </div>
           </div>
 
           <div className="actions">
