@@ -25,7 +25,7 @@ export function App() {
   useEffect(() => {
     void viewer.loadAuthConfig()
     void viewer.loadViewer({ silent: true })
-    void companies.loadCompanies("", "", { silent: true })
+    void companies.loadCompanies("", undefined, { silent: true })
   }, [viewer.loadAuthConfig, viewer.loadViewer, companies.loadCompanies])
 
   function onCreateCompany(event: FormEvent) {
@@ -43,7 +43,7 @@ export function App() {
     void (async () => {
       const [viewerOk, companiesOk] = await Promise.all([
         viewer.loadViewer({ silent: true }),
-        companies.loadCompanies(companies.filterName, companies.filterStatus, { silent: true })
+        companies.loadCompanies(companies.filterName, companies.filterStatuses, { silent: true })
       ])
 
       if (viewerOk && companiesOk) {
@@ -77,7 +77,7 @@ export function App() {
         onToast={toast.pushToast}
         onAuthChanged={() => {
           void viewer.loadViewer({ silent: true })
-          void companies.loadCompanies(companies.filterName, companies.filterStatus, { silent: true })
+          void companies.loadCompanies(companies.filterName, companies.filterStatuses, { silent: true })
         }}
       />
 
@@ -87,9 +87,11 @@ export function App() {
           loading={companies.loading}
           submitting={companies.submitting}
           savingStepID={companies.savingStepID}
+          deletingStepID={companies.deletingStepID}
+          deletingCompanyID={companies.deletingCompanyID}
           errorMessage={companies.errorMessage}
           filterName={companies.filterName}
-          filterStatus={companies.filterStatus}
+          filterStatuses={companies.filterStatuses}
           nameInput={companies.nameInput}
           newCompanyStatus={companies.newCompanyStatus}
           newSteps={companies.newSteps}
@@ -98,7 +100,8 @@ export function App() {
           companyEdits={companies.companyEdits}
           expandedCompanyIDs={companies.expandedCompanyIDs}
           onFilterNameChange={companies.setFilterName}
-          onFilterStatusChange={companies.setFilterStatus}
+          onToggleFilterStatus={companies.toggleFilterStatus}
+          onSelectAllFilterStatuses={companies.selectAllFilterStatuses}
           onFilterSubmit={onFilterSubmit}
           onClearFilter={() => void companies.clearFilter()}
           onNameInputChange={companies.setNameInput}
@@ -110,9 +113,11 @@ export function App() {
           onToggleCompanyDetail={companies.toggleCompanyDetail}
           onUpdateStepEdit={companies.updateStepEdit}
           onSaveStep={(companyID, stepID) => void companies.saveStep(companyID, stepID)}
+          onDeleteStep={(companyID, stepID) => void companies.deleteStep(companyID, stepID)}
           onUpdateCompanyEdit={companies.updateCompanyEdit}
           onApplyResearchTemplate={companies.applyResearchTemplate}
           onSaveCompanyDetail={(companyID) => void companies.saveCompanyDetail(companyID)}
+          onDeleteCompany={(companyID) => void companies.deleteCompany(companyID)}
           savingCompanyID={companies.savingCompanyID}
           onUpdateInlineDraft={companies.updateInlineDraft}
           onAddStepToCompany={(companyID) => void companies.addStepToCompany(companyID)}

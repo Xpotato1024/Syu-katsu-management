@@ -22,6 +22,7 @@ type SelectionStep struct {
 	Title       string     `json:"title"`
 	Status      string     `json:"status"`
 	ScheduledAt *time.Time `json:"scheduledAt,omitempty"`
+	Note        string     `json:"note"`
 }
 
 type UpsertInput struct {
@@ -40,9 +41,11 @@ type SelectionStepInput struct {
 	Title       string `json:"title"`
 	Status      string `json:"status"`
 	ScheduledAt string `json:"scheduledAt"`
+	Note        string `json:"note"`
 }
 
 type SelectionStepUpdateInput struct {
 	Status      *string `json:"status"`
 	ScheduledAt *string `json:"scheduledAt"`
+	Note        *string `json:"note"`
 }

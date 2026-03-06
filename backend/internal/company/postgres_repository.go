@@ -42,10 +42,12 @@ func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
 			title TEXT NOT NULL,
 			status TEXT NOT NULL,
 			scheduled_at TIMESTAMPTZ NULL,
+			note TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_selection_steps_company_created ON selection_steps (company_id, created_at ASC);`,
+		`ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';`,
 	}
 
 	for _, stmt := range statements {
@@ -339,14 +341,15 @@ func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionSt
 
 	if _, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, note, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		step.ID,
 		company.ID,
 		step.Kind,
 		step.Title,
 		step.Status,
 		step.ScheduledAt,
+		step.Note,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	); err != nil {
@@ -382,8 +385,8 @@ func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input 
 	if strings.TrimSpace(userID) == "" {
 		return Company{}, invalidInput("user id is required")
 	}
-	if input.Status == nil && input.ScheduledAt == nil {
-		return Company{}, fmt.Errorf("%w: status or scheduledAt is required", ErrInvalidInput)
+	if input.Status == nil && input.ScheduledAt == nil && input.Note == nil {
+		return Company{}, fmt.Errorf("%w: status or scheduledAt or note is required", ErrInvalidInput)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
@@ -403,10 +406,10 @@ func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input 
 	var current SelectionStep
 	err = tx.QueryRowContext(
 		ctx,
-		`SELECT id, kind, title, status, scheduled_at FROM selection_steps WHERE company_id = $1 AND id = $2`,
+		`SELECT id, kind, title, status, scheduled_at, note FROM selection_steps WHERE company_id = $1 AND id = $2`,
 		companyID,
 		stepID,
-	).Scan(&current.ID, &current.Kind, &current.Title, &current.Status, &current.ScheduledAt)
+	).Scan(&current.ID, &current.Kind, &current.Title, &current.Status, &current.ScheduledAt, &current.Note)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Company{}, ErrStepNotFound
@@ -428,17 +431,85 @@ func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input 
 		}
 		current.ScheduledAt = scheduledAt
 	}
+	if input.Note != nil {
+		current.Note = strings.TrimSpace(*input.Note)
+	}
 
 	if _, err := tx.ExecContext(
 		ctx,
-		`UPDATE selection_steps SET status=$1, scheduled_at=$2, updated_at=$3 WHERE id = $4 AND company_id = $5`,
+		`UPDATE selection_steps SET status=$1, scheduled_at=$2, note=$3, updated_at=$4 WHERE id = $5 AND company_id = $6`,
 		current.Status,
 		current.ScheduledAt,
+		current.Note,
 		time.Now().UTC(),
 		current.ID,
 		companyID,
 	); err != nil {
 		return Company{}, err
+	}
+
+	steps, err := listStepsTx(ctx, tx, company.ID)
+	if err != nil {
+		return Company{}, err
+	}
+	company.SelectionSteps = steps
+	company.SelectionFlow = composeSelectionFlow(steps)
+	company.UpdatedAt = time.Now().UTC()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE companies SET selection_flow=$1, updated_at=$2 WHERE user_id=$3 AND id=$4`,
+		company.SelectionFlow,
+		company.UpdatedAt,
+		userID,
+		companyID,
+	); err != nil {
+		return Company{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Company{}, err
+	}
+	return company, nil
+}
+
+func (r *PostgresRepository) DeleteStep(userID, companyID, stepID string) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+	if strings.TrimSpace(stepID) == "" {
+		return Company{}, invalidInput("step id is required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Company{}, err
+	}
+	defer tx.Rollback()
+
+	company, err := getCompanyForUpdate(ctx, tx, userID, companyID)
+	if err != nil {
+		return Company{}, err
+	}
+
+	result, err := tx.ExecContext(
+		ctx,
+		`DELETE FROM selection_steps WHERE company_id = $1 AND id = $2`,
+		companyID,
+		stepID,
+	)
+	if err != nil {
+		return Company{}, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return Company{}, err
+	}
+	if affected == 0 {
+		return Company{}, ErrStepNotFound
 	}
 
 	steps, err := listStepsTx(ctx, tx, company.ID)
@@ -503,7 +574,7 @@ func listStepsTx(ctx context.Context, q querier, companyID string) ([]SelectionS
 func listStepsWithQuerier(ctx context.Context, q querier, companyID string) ([]SelectionStep, error) {
 	rows, err := q.QueryContext(
 		ctx,
-		`SELECT id, kind, title, status, scheduled_at FROM selection_steps WHERE company_id=$1 ORDER BY created_at ASC`,
+		`SELECT id, kind, title, status, scheduled_at, note FROM selection_steps WHERE company_id=$1 ORDER BY created_at ASC`,
 		companyID,
 	)
 	if err != nil {
@@ -515,7 +586,7 @@ func listStepsWithQuerier(ctx context.Context, q querier, companyID string) ([]S
 	for rows.Next() {
 		var step SelectionStep
 		var scheduledAt sql.NullTime
-		if err := rows.Scan(&step.ID, &step.Kind, &step.Title, &step.Status, &scheduledAt); err != nil {
+		if err := rows.Scan(&step.ID, &step.Kind, &step.Title, &step.Status, &scheduledAt, &step.Note); err != nil {
 			return nil, err
 		}
 		if scheduledAt.Valid {
@@ -560,14 +631,15 @@ func insertSteps(ctx context.Context, tx *sql.Tx, companyID string, steps []Sele
 	for _, step := range steps {
 		if _, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, created_at, updated_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, note, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 			step.ID,
 			companyID,
 			step.Kind,
 			step.Title,
 			step.Status,
 			step.ScheduledAt,
+			step.Note,
 			time.Now().UTC(),
 			time.Now().UTC(),
 		); err != nil {

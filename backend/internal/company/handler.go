@@ -203,7 +203,7 @@ func (h *Handler) companyByID(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 2 && parts[1] == "steps":
 		h.handleAddStep(w, r, user.ID, companyID)
 	case len(parts) == 3 && parts[1] == "steps":
-		h.handleUpdateStep(w, r, user.ID, companyID, parts[2])
+		h.handleStepResource(w, r, user.ID, companyID, parts[2])
 	default:
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid path"})
 	}
@@ -274,13 +274,32 @@ func (h *Handler) handleAddStep(w http.ResponseWriter, r *http.Request, userID, 
 	writeJSON(w, http.StatusOK, updated)
 }
 
-func (h *Handler) handleUpdateStep(w http.ResponseWriter, r *http.Request, userID, companyID, stepID string) {
-	if r.Method != http.MethodPut {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (h *Handler) handleStepResource(w http.ResponseWriter, r *http.Request, userID, companyID, stepID string) {
 	if strings.TrimSpace(stepID) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "step id is required"})
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		updated, err := h.repo.DeleteStep(userID, companyID, stepID)
+		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrStepNotFound) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, ErrInvalidInput) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete step"})
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+		return
+	}
+
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 

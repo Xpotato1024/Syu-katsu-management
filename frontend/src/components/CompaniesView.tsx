@@ -4,16 +4,18 @@ import remarkGfm from "remark-gfm"
 import { companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { newStepDraft, resolveCurrentStepIndex, stepLabel, stepVisualState } from "../utils/selection"
-import { toDateInputValue } from "../utils/date"
+import { toDateTimeInputValue } from "../utils/date"
 
 type CompaniesViewProps = {
   companies: Company[]
   loading: boolean
   submitting: boolean
   savingStepID: string
+  deletingStepID: string
+  deletingCompanyID: string
   errorMessage: string
   filterName: string
-  filterStatus: string
+  filterStatuses: string[]
   nameInput: string
   newCompanyStatus: string
   newSteps: StepDraft[]
@@ -22,7 +24,8 @@ type CompaniesViewProps = {
   companyEdits: Record<string, CompanyDetailEdit>
   expandedCompanyIDs: Record<string, boolean>
   onFilterNameChange: (value: string) => void
-  onFilterStatusChange: (value: string) => void
+  onToggleFilterStatus: (status: string) => void
+  onSelectAllFilterStatuses: () => void
   onFilterSubmit: (event: FormEvent) => void
   onClearFilter: () => void
   onNameInputChange: (value: string) => void
@@ -34,9 +37,11 @@ type CompaniesViewProps = {
   onToggleCompanyDetail: (companyID: string) => void
   onUpdateStepEdit: (stepID: string, patch: Partial<StepEdit>) => void
   onSaveStep: (companyID: string, stepID: string) => void
+  onDeleteStep: (companyID: string, stepID: string) => void
   onUpdateCompanyEdit: (companyID: string, patch: Partial<CompanyDetailEdit>) => void
   onApplyResearchTemplate: (companyID: string) => void
   onSaveCompanyDetail: (companyID: string) => void
+  onDeleteCompany: (companyID: string) => void
   savingCompanyID: string
   onUpdateInlineDraft: (companyID: string, patch: Partial<StepDraft>) => void
   onAddStepToCompany: (companyID: string) => void
@@ -47,9 +52,11 @@ export function CompaniesView({
   loading,
   submitting,
   savingStepID,
+  deletingStepID,
+  deletingCompanyID,
   errorMessage,
   filterName,
-  filterStatus,
+  filterStatuses,
   nameInput,
   newCompanyStatus,
   newSteps,
@@ -58,7 +65,8 @@ export function CompaniesView({
   companyEdits,
   expandedCompanyIDs,
   onFilterNameChange,
-  onFilterStatusChange,
+  onToggleFilterStatus,
+  onSelectAllFilterStatuses,
   onFilterSubmit,
   onClearFilter,
   onNameInputChange,
@@ -70,14 +78,17 @@ export function CompaniesView({
   onToggleCompanyDetail,
   onUpdateStepEdit,
   onSaveStep,
+  onDeleteStep,
   onUpdateCompanyEdit,
   onApplyResearchTemplate,
   onSaveCompanyDetail,
+  onDeleteCompany,
   savingCompanyID,
   onUpdateInlineDraft,
   onAddStepToCompany
 }: CompaniesViewProps) {
   const [docModeByKey, setDocModeByKey] = useState<Record<string, "edit" | "view">>({})
+  const [isFilterOptionsOpen, setIsFilterOptionsOpen] = useState(false)
   const markdownPlugins = useMemo(() => [remarkGfm], [])
 
   function docMode(companyID: string, kind: "research" | "es"): "edit" | "view" {
@@ -96,20 +107,46 @@ export function CompaniesView({
 
       <section className="panel">
         <h2>企業検索</h2>
-        <form onSubmit={onFilterSubmit} className="row">
-          <input value={filterName} onChange={(e) => onFilterNameChange(e.target.value)} placeholder="企業名で検索" />
-          <select value={filterStatus} onChange={(e) => onFilterStatusChange(e.target.value)}>
-            <option value="">全ステータス</option>
-            {companyStatusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <button type="submit">絞り込み</button>
-          <button type="button" className="button-secondary" onClick={onClearFilter}>
-            クリア
-          </button>
+        <form onSubmit={onFilterSubmit} className="stack filter-form">
+          <div className="row">
+            <input value={filterName} onChange={(e) => onFilterNameChange(e.target.value)} placeholder="企業名で検索" />
+            <button type="submit">絞り込み</button>
+            <button type="button" className="button-secondary" onClick={onClearFilter}>
+              クリア
+            </button>
+            <button
+              type="button"
+              className={isFilterOptionsOpen ? "button-secondary active-toggle filter-toggle-fixed" : "button-secondary filter-toggle-fixed"}
+              onClick={() => setIsFilterOptionsOpen((prev) => !prev)}
+            >
+              {isFilterOptionsOpen ? "詳細を閉じる" : "詳細を開く"}
+            </button>
+          </div>
+          <p className="muted filter-summary">選考状況フィルタ: {filterStatuses.length} / {companyStatusOptions.length} を選択中</p>
+          {isFilterOptionsOpen && (
+            <fieldset className="status-filter-set">
+              <legend>選考状況（複数選択）</legend>
+              <div className="status-filter-list">
+                {companyStatusOptions.map((status) => {
+                  const checked = filterStatuses.includes(status)
+                  return (
+                    <label key={status} className={checked ? "status-filter-chip checked" : "status-filter-chip"}>
+                      <input type="checkbox" checked={checked} onChange={() => onToggleFilterStatus(status)} />
+                      <span>{status}</span>
+                    </label>
+                  )
+                })}
+                <button
+                  type="button"
+                  className="button-secondary status-filter-select-all"
+                  onClick={onSelectAllFilterStatuses}
+                  disabled={filterStatuses.length === companyStatusOptions.length}
+                >
+                  全選択
+                </button>
+              </div>
+            </fieldset>
+          )}
         </form>
       </section>
 
@@ -154,6 +191,17 @@ export function CompaniesView({
                       </option>
                     ))}
                   </select>
+                  <input
+                    type="datetime-local"
+                    value={step.scheduledAt}
+                    onChange={(e) => onUpdateNewStep(index, { scheduledAt: e.target.value })}
+                    aria-label="日時"
+                  />
+                  <input
+                    value={step.note}
+                    onChange={(e) => onUpdateNewStep(index, { note: e.target.value })}
+                    placeholder="備考（URL / 会場 / 持ち物）"
+                  />
                   <button
                     type="button"
                     className="button-danger"
@@ -193,6 +241,7 @@ export function CompaniesView({
           const companyEdit = companyEdits[company.id] ?? {
             mypageLink: company.mypageLink || "",
             mypageId: company.mypageId || "",
+            selectionStatus: company.selectionStatus || companyStatusOptions[0],
             researchContent: company.researchContent || "",
             esContent: company.esContent || ""
           }
@@ -204,13 +253,27 @@ export function CompaniesView({
                   <h3>{company.name}</h3>
                   <span className="badge">{company.selectionStatus || "未設定"}</span>
                 </div>
-                <button
-                  type="button"
-                  className="button-secondary company-toggle"
-                  onClick={() => onToggleCompanyDetail(company.id)}
-                >
-                  {isExpanded ? "詳細を閉じる" : "詳細を開く"}
-                </button>
+                <div className="company-actions">
+                  <button
+                    type="button"
+                    className="button-secondary company-toggle"
+                    onClick={() => onToggleCompanyDetail(company.id)}
+                  >
+                    {isExpanded ? "詳細を閉じる" : "詳細を開く"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button-danger"
+                    onClick={() => {
+                      const shouldDelete = window.confirm(`「${company.name}」を削除します。元に戻せません。続行しますか？`)
+                      if (!shouldDelete) return
+                      onDeleteCompany(company.id)
+                    }}
+                    disabled={deletingCompanyID === company.id}
+                  >
+                    {deletingCompanyID === company.id ? "削除中..." : "企業削除"}
+                  </button>
+                </div>
               </header>
 
               <div className="flow-summary">
@@ -247,6 +310,16 @@ export function CompaniesView({
                   <section className="doc-editor">
                     <h4>企業情報・ドキュメント</h4>
                     <div className="row">
+                      <select
+                        value={companyEdit.selectionStatus}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { selectionStatus: e.target.value })}
+                      >
+                        {companyStatusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         value={companyEdit.mypageLink}
                         onChange={(e) => onUpdateCompanyEdit(company.id, { mypageLink: e.target.value })}
@@ -365,7 +438,8 @@ export function CompaniesView({
                     {steps.map((step) => {
                       const edit = stepEdits[step.id] ?? {
                         status: step.status || stepStatusOptions[0],
-                        scheduledAt: toDateInputValue(step.scheduledAt)
+                        scheduledAt: toDateTimeInputValue(step.scheduledAt),
+                        note: step.note || ""
                       }
 
                       return (
@@ -383,12 +457,29 @@ export function CompaniesView({
                               ))}
                             </select>
                             <input
-                              type="date"
+                              type="datetime-local"
                               value={edit.scheduledAt}
                               onChange={(e) => onUpdateStepEdit(step.id, { scheduledAt: e.target.value })}
                             />
+                            <input
+                              value={edit.note}
+                              onChange={(e) => onUpdateStepEdit(step.id, { note: e.target.value })}
+                              placeholder="備考（URL / 会場 / 持ち物）"
+                            />
                             <button type="button" onClick={() => onSaveStep(company.id, step.id)} disabled={savingStepID === step.id}>
                               {savingStepID === step.id ? "保存中..." : "保存"}
+                            </button>
+                            <button
+                              type="button"
+                              className="button-danger"
+                              onClick={() => {
+                                const shouldDelete = window.confirm(`「${stepLabel(step)}」を削除します。続行しますか？`)
+                                if (!shouldDelete) return
+                                onDeleteStep(company.id, step.id)
+                              }}
+                              disabled={deletingStepID === step.id}
+                            >
+                              {deletingStepID === step.id ? "削除中..." : "削除"}
                             </button>
                           </div>
                         </div>
@@ -417,6 +508,16 @@ export function CompaniesView({
                           </option>
                         ))}
                       </select>
+                      <input
+                        type="datetime-local"
+                        value={inlineDraft.scheduledAt}
+                        onChange={(e) => onUpdateInlineDraft(company.id, { scheduledAt: e.target.value })}
+                      />
+                      <input
+                        value={inlineDraft.note}
+                        onChange={(e) => onUpdateInlineDraft(company.id, { note: e.target.value })}
+                        placeholder="備考（URL / 会場 / 持ち物）"
+                      />
                     </div>
                     <button type="button" className="button-secondary" onClick={() => onAddStepToCompany(company.id)}>
                       この企業にステップ追加
@@ -429,7 +530,7 @@ export function CompaniesView({
         })}
       </section>
 
-      {!loading && companies.length === 0 && <p className="muted">該当する企業はありません。</p>}
+      {!loading && companies.length === 0 && <p className="empty-state">該当する企業はありません。</p>}
     </>
   )
 }

@@ -7,5 +7,6 @@ type Store interface {
 	Update(userID, id string, input UpsertInput) (Company, error)
 	AddStep(userID, companyID string, input SelectionStepInput) (Company, error)
 	UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error)
+	DeleteStep(userID, companyID, stepID string) (Company, error)
 	Delete(userID, id string) error
 }
