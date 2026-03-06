@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { weekdayShort } from "../constants"
 import type { Company, SelectionStep } from "../types"
 import { formatTimeLabel, toDateInputValue } from "../utils/date"
@@ -66,6 +66,7 @@ export function TimelineView({
   const [collapsedCompanyIDs, setCollapsedCompanyIDs] = useState<Record<string, boolean>>({})
   const [rangeMode, setRangeMode] = useState<TimelineRangeMode>("month")
   const [rangeStartIndex, setRangeStartIndex] = useState(0)
+  const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
 
   const today = useMemo(() => new Date(), [])
   const rangeSpan = useMemo(() => rangeSize(rangeMode, timelineDays.length), [rangeMode, timelineDays.length])
@@ -77,8 +78,13 @@ export function TimelineView({
 
   const [visibleDayRange, setVisibleDayRange] = useState({ start: 0, end: Math.max(0, displayedDays.length - 1) })
 
-  const stickyColumnWidth = compactMode ? 156 : 220
-  const dayColumnMinWidth = compactMode ? 64 : 84
+  const allRowsCollapsed = useMemo(() => {
+    if (calendarFilteredCompanies.length === 0) return false
+    return calendarFilteredCompanies.every((company) => !!collapsedCompanyIDs[company.id])
+  }, [calendarFilteredCompanies, collapsedCompanyIDs])
+
+  const stickyColumnWidth = allRowsCollapsed ? (compactMode ? 96 : 116) : compactMode ? 136 : 220
+  const dayColumnMinWidth = compactMode ? 56 : 84
 
   useEffect(() => {
     if (rangeMode === "month") {
@@ -93,6 +99,10 @@ export function TimelineView({
       return 0
     })
   }, [maxRangeStart, rangeMode, timelineDays, today])
+
+  useEffect(() => {
+    setFilterInput(calendarCompanyFilter)
+  }, [calendarCompanyFilter])
 
   const dayIndexByKey = useMemo(() => {
     const map = new Map<string, number>()
@@ -176,6 +186,11 @@ export function TimelineView({
 
   const showTimelineGrid = timelineEmptyMessage === ""
 
+  function onFilterSubmit(event: FormEvent) {
+    event.preventDefault()
+    onCalendarCompanyFilterChange(filterInput)
+  }
+
   return (
     <>
       <section className="hero">
@@ -184,11 +199,11 @@ export function TimelineView({
 
       <section className="panel timeline-toolbar">
         <h2>企業別カレンダー</h2>
-        <div className="row">
+        <div className="row timeline-row-month">
           <button type="button" className="button-secondary" onClick={onPrevMonth}>
             前月
           </button>
-          <div className="month-badge">{`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}</div>
+          <div className="month-badge timeline-month-badge">{`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}</div>
           <button type="button" className="button-secondary" onClick={onNextMonth}>
             次月
           </button>
@@ -196,7 +211,7 @@ export function TimelineView({
             今月へ
           </button>
         </div>
-        <div className="row timeline-range-switch">
+        <div className="row timeline-range-switch timeline-row-range">
           <button type="button" className={rangeMode === "3d" ? "button-secondary active-toggle" : "button-secondary"} onClick={() => setRangeMode("3d")}>
             3日表示
           </button>
@@ -223,15 +238,21 @@ export function TimelineView({
           )}
           {shownRangeLabel && <span className="timeline-range-label">{shownRangeLabel}</span>}
         </div>
-        <div className="row">
-          <input
-            value={calendarCompanyFilter}
-            onChange={(e) => onCalendarCompanyFilterChange(e.target.value)}
-            placeholder="企業名でカレンダー表示を絞り込み"
-          />
-          <button type="button" className="button-secondary" onClick={onClearCalendarCompanyFilter}>
-            絞り込み解除
+        <form className="row timeline-row-filter" onSubmit={onFilterSubmit}>
+          <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名でカレンダー表示を絞り込み" />
+          <button type="submit">絞り込み</button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              setFilterInput("")
+              onClearCalendarCompanyFilter()
+            }}
+          >
+            クリア
           </button>
+        </form>
+        <div className="row timeline-row-toggles">
           <button
             type="button"
             className={compactMode ? "button-secondary active-toggle timeline-toggle-fixed-compact" : "button-secondary timeline-toggle-fixed-compact"}
@@ -318,20 +339,37 @@ export function TimelineView({
                 return (
                   <Fragment key={`row-${company.id}`}>
                     <div className={companyClassName}>
-                      <strong title={company.name}>{company.name}</strong>
-                      <small>{company.selectionStatus}</small>
-                      <button
-                        type="button"
-                        className="timeline-collapse"
-                        onClick={() =>
-                          setCollapsedCompanyIDs((prev) => ({
-                            ...prev,
-                            [company.id]: !prev[company.id]
-                          }))
-                        }
-                      >
-                        {rowCollapsed ? "展開" : "折りたたむ"}
-                      </button>
+                      <div className="timeline-company-main">
+                        <button
+                          type="button"
+                          className={rowCollapsed ? "timeline-collapse collapsed" : "timeline-collapse"}
+                          aria-label={rowCollapsed ? "企業行を展開" : "企業行を折りたたむ"}
+                          onClick={() =>
+                            setCollapsedCompanyIDs((prev) => ({
+                              ...prev,
+                              [company.id]: !prev[company.id]
+                            }))
+                          }
+                        >
+                          <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d={rowCollapsed ? "M6 3l5 5-5 5z" : "M3 6l5 5 5-5z"} />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className={rowCollapsed ? "timeline-company-name collapsed" : "timeline-company-name"}
+                          onClick={() =>
+                            setCollapsedCompanyIDs((prev) => ({
+                              ...prev,
+                              [company.id]: !prev[company.id]
+                            }))
+                          }
+                          title={company.name}
+                        >
+                          {company.name}
+                        </button>
+                      </div>
+                      {!rowCollapsed && <small>{company.selectionStatus}</small>}
                       {(hasBefore || hasAfter) && (
                         <span className="timeline-edge-note">
                           {hasBefore ? "← 左側に見切れあり" : ""}

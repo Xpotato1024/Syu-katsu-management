@@ -213,6 +213,64 @@ func TestDeleteSelectionStepAndCompany(t *testing.T) {
 	}
 }
 
+func TestBulkUpdateSelectionSteps(t *testing.T) {
+	repo := NewRepository()
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	created := mustCreateCompanyAndReturn(t, mux, UpsertInput{
+		Name: "Bulk Target",
+		SelectionSteps: []SelectionStepInput{
+			{Kind: "ES", Status: "未着手"},
+			{Kind: "面接", Status: "未着手"},
+		},
+	})
+	if len(created.SelectionSteps) != 2 {
+		t.Fatalf("expected 2 steps got %d", len(created.SelectionSteps))
+	}
+
+	updateBody, _ := json.Marshal(SelectionStepBulkUpdateInput{
+		Steps: []SelectionStepBulkUpdateItem{
+			{
+				ID:          created.SelectionSteps[0].ID,
+				Title:       ptr("書類選考"),
+				Status:      ptr("通過"),
+				ScheduledAt: ptr("2026-03-12T10:00"),
+				Note:        ptr("提出完了"),
+			},
+			{
+				ID:          created.SelectionSteps[1].ID,
+				Title:       ptr("一次面接"),
+				Status:      ptr("予定"),
+				ScheduledAt: ptr("2026-03-20T14:30"),
+				Note:        ptr("Zoom URL"),
+			},
+		},
+	})
+	updateReq := httptest.NewRequest(http.MethodPut, "/companies/"+created.ID+"/steps/bulk", bytes.NewReader(updateBody))
+	updateRec := httptest.NewRecorder()
+	mux.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", updateRec.Code)
+	}
+
+	var afterUpdate Company
+	if err := json.Unmarshal(updateRec.Body.Bytes(), &afterUpdate); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+	if afterUpdate.SelectionFlow != "書類選考 -> 一次面接" {
+		t.Fatalf("unexpected selection flow: %s", afterUpdate.SelectionFlow)
+	}
+	if afterUpdate.SelectionSteps[0].Title != "書類選考" {
+		t.Fatalf("unexpected first step title: %s", afterUpdate.SelectionSteps[0].Title)
+	}
+	if afterUpdate.SelectionSteps[1].Title != "一次面接" {
+		t.Fatalf("unexpected second step title: %s", afterUpdate.SelectionSteps[1].Title)
+	}
+}
+
 func TestMeEndpointWithProxyHeaderMode(t *testing.T) {
 	repo := NewRepository()
 	authProvider, _ := auth.NewProvider(auth.Config{

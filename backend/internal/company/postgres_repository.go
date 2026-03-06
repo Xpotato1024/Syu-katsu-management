@@ -356,12 +356,12 @@ func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionSt
 		return Company{}, err
 	}
 
-	steps, err := listStepsTx(ctx, tx, company.ID)
+	updatedSteps, err := listStepsTx(ctx, tx, company.ID)
 	if err != nil {
 		return Company{}, err
 	}
-	company.SelectionSteps = steps
-	company.SelectionFlow = composeSelectionFlow(steps)
+	company.SelectionSteps = updatedSteps
+	company.SelectionFlow = composeSelectionFlow(updatedSteps)
 	company.UpdatedAt = time.Now().UTC()
 
 	if _, err := tx.ExecContext(
@@ -382,11 +382,23 @@ func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionSt
 }
 
 func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+	return r.UpdateSteps(userID, companyID, []SelectionStepBulkUpdateItem{
+		{
+			ID:          stepID,
+			Title:       input.Title,
+			Status:      input.Status,
+			ScheduledAt: input.ScheduledAt,
+			Note:        input.Note,
+		},
+	})
+}
+
+func (r *PostgresRepository) UpdateSteps(userID, companyID string, steps []SelectionStepBulkUpdateItem) (Company, error) {
 	if strings.TrimSpace(userID) == "" {
 		return Company{}, invalidInput("user id is required")
 	}
-	if input.Status == nil && input.ScheduledAt == nil && input.Note == nil {
-		return Company{}, fmt.Errorf("%w: status or scheduledAt or note is required", ErrInvalidInput)
+	if len(steps) == 0 {
+		return Company{}, fmt.Errorf("%w: steps is required", ErrInvalidInput)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
@@ -403,57 +415,75 @@ func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input 
 		return Company{}, err
 	}
 
-	var current SelectionStep
-	err = tx.QueryRowContext(
-		ctx,
-		`SELECT id, kind, title, status, scheduled_at, note FROM selection_steps WHERE company_id = $1 AND id = $2`,
-		companyID,
-		stepID,
-	).Scan(&current.ID, &current.Kind, &current.Title, &current.Status, &current.ScheduledAt, &current.Note)
+	currentSteps, err := listStepsTx(ctx, tx, company.ID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		return Company{}, err
+	}
+	stepByID := make(map[string]SelectionStep, len(currentSteps))
+	for _, step := range currentSteps {
+		stepByID[step.ID] = step
+	}
+
+	for _, patch := range steps {
+		stepID := strings.TrimSpace(patch.ID)
+		if stepID == "" {
+			return Company{}, invalidInput("step id is required")
+		}
+		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.Note == nil {
+			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or note is required", ErrInvalidInput)
+		}
+
+		current, exists := stepByID[stepID]
+		if !exists {
 			return Company{}, ErrStepNotFound
 		}
-		return Company{}, err
-	}
 
-	if input.Status != nil {
-		normalizedStatus, err := normalizeSelectionStepStatus(*input.Status)
-		if err != nil {
+		if patch.Title != nil {
+			title := strings.TrimSpace(*patch.Title)
+			if title == "" {
+				title = current.Kind
+			}
+			current.Title = title
+		}
+		if patch.Status != nil {
+			normalizedStatus, err := normalizeSelectionStepStatus(*patch.Status)
+			if err != nil {
+				return Company{}, err
+			}
+			current.Status = normalizedStatus
+		}
+		if patch.ScheduledAt != nil {
+			scheduledAt, err := parseScheduledAt(*patch.ScheduledAt)
+			if err != nil {
+				return Company{}, err
+			}
+			current.ScheduledAt = scheduledAt
+		}
+		if patch.Note != nil {
+			current.Note = strings.TrimSpace(*patch.Note)
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			`UPDATE selection_steps SET title=$1, status=$2, scheduled_at=$3, note=$4, updated_at=$5 WHERE id = $6 AND company_id = $7`,
+			current.Title,
+			current.Status,
+			current.ScheduledAt,
+			current.Note,
+			time.Now().UTC(),
+			current.ID,
+			companyID,
+		); err != nil {
 			return Company{}, err
 		}
-		current.Status = normalizedStatus
-	}
-	if input.ScheduledAt != nil {
-		scheduledAt, err := parseScheduledAt(*input.ScheduledAt)
-		if err != nil {
-			return Company{}, err
-		}
-		current.ScheduledAt = scheduledAt
-	}
-	if input.Note != nil {
-		current.Note = strings.TrimSpace(*input.Note)
 	}
 
-	if _, err := tx.ExecContext(
-		ctx,
-		`UPDATE selection_steps SET status=$1, scheduled_at=$2, note=$3, updated_at=$4 WHERE id = $5 AND company_id = $6`,
-		current.Status,
-		current.ScheduledAt,
-		current.Note,
-		time.Now().UTC(),
-		current.ID,
-		companyID,
-	); err != nil {
-		return Company{}, err
-	}
-
-	steps, err := listStepsTx(ctx, tx, company.ID)
+	updatedSteps, err := listStepsTx(ctx, tx, company.ID)
 	if err != nil {
 		return Company{}, err
 	}
-	company.SelectionSteps = steps
-	company.SelectionFlow = composeSelectionFlow(steps)
+	company.SelectionSteps = updatedSteps
+	company.SelectionFlow = composeSelectionFlow(updatedSteps)
 	company.UpdatedAt = time.Now().UTC()
 
 	if _, err := tx.ExecContext(

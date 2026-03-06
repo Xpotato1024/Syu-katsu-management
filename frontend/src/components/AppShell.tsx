@@ -38,22 +38,24 @@ export function AppShell({
   return (
     <main className="app-shell">
       <header className="topbar">
-        <button
-          className="icon-button"
-          type="button"
-          onClick={onToggleMenu}
-          aria-label="メニュー"
-          aria-expanded={isMenuOpen}
-          aria-controls="global-menu"
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-        <div className="topbar-title">
-          <p className="eyebrow">{appTitleEn}</p>
-          <h1>{appName}</h1>
-          <p className="topbar-by">{appByline}</p>
+        <div className="topbar-left">
+          <button
+            className="icon-button"
+            type="button"
+            onClick={onToggleMenu}
+            aria-label="メニュー"
+            aria-expanded={isMenuOpen}
+            aria-controls="global-menu"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <div className="topbar-title">
+            <p className="eyebrow">{appTitleEn}</p>
+            <h1>{appName}</h1>
+            <p className="topbar-by">{appByline}</p>
+          </div>
         </div>
         <div className="topbar-meta">
           <span className="view-chip">{viewLabel(activeView)}</span>
@@ -93,9 +95,6 @@ export function AppShell({
         <div className="drawer-divider" />
         <div className="drawer-group">
           <p className="drawer-subtitle">アカウント</p>
-          <button type="button" className="drawer-item" onClick={onToggleTheme}>
-            テーマ: {theme === "dark" ? "ダーク" : "ライト"}
-          </button>
           {viewer ? (
             <div className="account-card">
               <strong>{viewer.name || viewer.id}</strong>
@@ -115,6 +114,10 @@ export function AppShell({
             </a>
           )}
         </div>
+        <button type="button" className="theme-toggle drawer-theme-toggle" onClick={onToggleTheme} aria-label="テーマ切り替え">
+          <span className="theme-dot" />
+          {theme === "dark" ? "Dark" : "Light"}
+        </button>
       </aside>
 
       <button

@@ -86,7 +86,7 @@ export function App() {
           companies={companies.companies}
           loading={companies.loading}
           submitting={companies.submitting}
-          savingStepID={companies.savingStepID}
+          savingFlowCompanyID={companies.savingFlowCompanyID}
           deletingStepID={companies.deletingStepID}
           deletingCompanyID={companies.deletingCompanyID}
           errorMessage={companies.errorMessage}
@@ -112,13 +112,15 @@ export function App() {
           onCreateCompany={onCreateCompany}
           onToggleCompanyDetail={companies.toggleCompanyDetail}
           onUpdateStepEdit={companies.updateStepEdit}
-          onSaveStep={(companyID, stepID) => void companies.saveStep(companyID, stepID)}
+          onSaveFlow={(companyID) => void companies.saveFlow(companyID)}
           onDeleteStep={(companyID, stepID) => void companies.deleteStep(companyID, stepID)}
           onUpdateCompanyEdit={companies.updateCompanyEdit}
           onApplyResearchTemplate={companies.applyResearchTemplate}
-          onSaveCompanyDetail={(companyID) => void companies.saveCompanyDetail(companyID)}
+          onSaveCompanyInfo={(companyID) => void companies.saveCompanyInfo(companyID)}
+          onSaveCompanyDocuments={(companyID) => void companies.saveCompanyDocuments(companyID)}
           onDeleteCompany={(companyID) => void companies.deleteCompany(companyID)}
-          savingCompanyID={companies.savingCompanyID}
+          savingCompanyInfoID={companies.savingCompanyInfoID}
+          savingDocumentsCompanyID={companies.savingDocumentsCompanyID}
           onUpdateInlineDraft={companies.updateInlineDraft}
           onAddStepToCompany={(companyID) => void companies.addStepToCompany(companyID)}
         />
