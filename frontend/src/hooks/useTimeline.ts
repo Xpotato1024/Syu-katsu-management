@@ -74,14 +74,20 @@ export function useTimeline({ companies }: UseTimelineArgs) {
           companyName: company.name,
           companyStatus: company.selectionStatus,
           stepID: step.id,
+          stepKind: step.kind,
           stepLabel: stepLabel(step),
-          stepStatus: step.status
+          stepStatus: step.status,
+          scheduledAt: step.scheduledAt,
+          note: step.note || ""
         })
       }
     }
 
     events.sort((a, b) => {
       if (a.dayKey !== b.dayKey) return a.dayKey.localeCompare(b.dayKey)
+      const at = a.scheduledAt || ""
+      const bt = b.scheduledAt || ""
+      if (at !== bt) return at.localeCompare(bt)
       const companyCompare = a.companyName.localeCompare(b.companyName, "ja")
       if (companyCompare !== 0) return companyCompare
       return a.stepLabel.localeCompare(b.stepLabel, "ja")

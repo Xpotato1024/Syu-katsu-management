@@ -2,7 +2,7 @@ import { completedStepStatuses, pendingStepStatuses, stoppedStepStatuses } from 
 import type { SelectionStep, StepDraft } from "../types"
 
 export function newStepDraft(kind = "エントリー"): StepDraft {
-  return { kind, title: "", status: "未着手" }
+  return { kind, title: "", status: "未着手", scheduledAt: "", note: "" }
 }
 
 export function stepLabel(step: SelectionStep): string {
@@ -25,4 +25,15 @@ export function stepVisualState(status: string): "pending" | "done" | "stopped" 
   if (completedStepStatuses.has(status)) return "done"
   if (stoppedStepStatuses.has(status)) return "stopped"
   return "pending"
+}
+
+export function stepKindTone(kind: string): "entry" | "es" | "webtest" | "interview" | "gd" | "session" | "other" {
+  const normalized = kind.trim().toLowerCase()
+  if (normalized === "エントリー") return "entry"
+  if (normalized === "es") return "es"
+  if (normalized === "webテスト") return "webtest"
+  if (normalized === "面接") return "interview"
+  if (normalized === "gd") return "gd"
+  if (normalized === "面談" || normalized === "説明会") return "session"
+  return "other"
 }

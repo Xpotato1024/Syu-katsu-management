@@ -196,8 +196,8 @@ func (r *Repository) UpdateStep(userID, companyID, stepID string, input Selectio
 		return Company{}, invalidInput("user id is required")
 	}
 
-	if input.Status == nil && input.ScheduledAt == nil {
-		return Company{}, fmt.Errorf("%w: status or scheduledAt is required", ErrInvalidInput)
+	if input.Status == nil && input.ScheduledAt == nil && input.Note == nil {
+		return Company{}, fmt.Errorf("%w: status or scheduledAt or note is required", ErrInvalidInput)
 	}
 
 	r.mu.Lock()
@@ -235,8 +235,47 @@ func (r *Repository) UpdateStep(userID, companyID, stepID string, input Selectio
 		}
 		step.ScheduledAt = scheduledAt
 	}
+	if input.Note != nil {
+		step.Note = strings.TrimSpace(*input.Note)
+	}
 
 	existing.SelectionSteps[index] = step
+	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
+	existing.UpdatedAt = time.Now().UTC()
+
+	userItems[companyID] = existing
+	return existing, nil
+}
+
+func (r *Repository) DeleteStep(userID, companyID, stepID string) (Company, error) {
+	if strings.TrimSpace(userID) == "" {
+		return Company{}, invalidInput("user id is required")
+	}
+	if strings.TrimSpace(stepID) == "" {
+		return Company{}, invalidInput("step id is required")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	userItems := r.ensureUserStore(userID)
+	existing, ok := userItems[companyID]
+	if !ok {
+		return Company{}, ErrNotFound
+	}
+
+	index := -1
+	for i, step := range existing.SelectionSteps {
+		if step.ID == stepID {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return Company{}, ErrStepNotFound
+	}
+
+	existing.SelectionSteps = append(existing.SelectionSteps[:index], existing.SelectionSteps[index+1:]...)
 	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
 	existing.UpdatedAt = time.Now().UTC()
 
@@ -386,7 +425,7 @@ func parseScheduledAt(raw string) (*time.Time, error) {
 			return &utc, nil
 		}
 	}
-	return nil, invalidInput("scheduledAt must be RFC3339 or YYYY-MM-DD")
+	return nil, invalidInput("scheduledAt must be RFC3339, YYYY-MM-DD, or YYYY-MM-DDTHH:MM")
 }
 
 func buildSelectionSteps(inputs []SelectionStepInput) ([]SelectionStep, error) {
@@ -430,6 +469,7 @@ func buildSelectionStep(input SelectionStepInput) (SelectionStep, error) {
 		Title:       title,
 		Status:      status,
 		ScheduledAt: scheduledAt,
+		Note:        strings.TrimSpace(input.Note),
 	}, nil
 }
 

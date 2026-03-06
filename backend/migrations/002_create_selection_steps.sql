@@ -5,8 +5,11 @@ CREATE TABLE IF NOT EXISTS selection_steps (
   title TEXT NOT NULL,
   status TEXT NOT NULL,
   scheduled_at TIMESTAMPTZ NULL,
+  note TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_selection_steps_company_created ON selection_steps (company_id, created_at ASC);
+
+ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';

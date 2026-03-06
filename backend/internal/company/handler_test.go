@@ -137,7 +137,8 @@ func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 	stepID := afterAdd.SelectionSteps[0].ID
 	updateBody, _ := json.Marshal(SelectionStepUpdateInput{
 		Status:      ptr("予定"),
-		ScheduledAt: ptr("2026-03-20"),
+		ScheduledAt: ptr("2026-03-20T10:30"),
+		Note:        ptr("Zoom URL: https://example.com/interview"),
 	})
 	updateReq := httptest.NewRequest(http.MethodPut, "/companies/"+created.ID+"/steps/"+stepID, bytes.NewReader(updateBody))
 	updateRec := httptest.NewRecorder()
@@ -159,6 +160,56 @@ func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 	}
 	if step.ScheduledAt.Format("2006-01-02") != "2026-03-20" {
 		t.Fatalf("unexpected scheduledAt: %s", step.ScheduledAt.Format(time.RFC3339))
+	}
+	if step.Note != "Zoom URL: https://example.com/interview" {
+		t.Fatalf("unexpected note: %s", step.Note)
+	}
+}
+
+func TestDeleteSelectionStepAndCompany(t *testing.T) {
+	repo := NewRepository()
+	authProvider, _ := auth.NewProvider(auth.Config{Mode: auth.ModeNone, DevUserID: "test-user"})
+	h := NewHandler(repo, authProvider)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	created := mustCreateCompanyAndReturn(t, mux, UpsertInput{
+		Name: "Delete Target",
+		SelectionSteps: []SelectionStepInput{
+			{Kind: "ES"},
+			{Kind: "面接"},
+		},
+	})
+	if len(created.SelectionSteps) != 2 {
+		t.Fatalf("expected 2 steps got %d", len(created.SelectionSteps))
+	}
+
+	stepID := created.SelectionSteps[0].ID
+	stepDeleteReq := httptest.NewRequest(http.MethodDelete, "/companies/"+created.ID+"/steps/"+stepID, nil)
+	stepDeleteRec := httptest.NewRecorder()
+	mux.ServeHTTP(stepDeleteRec, stepDeleteReq)
+	if stepDeleteRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", stepDeleteRec.Code)
+	}
+
+	var afterStepDelete Company
+	if err := json.Unmarshal(stepDeleteRec.Body.Bytes(), &afterStepDelete); err != nil {
+		t.Fatalf("failed to decode delete-step response: %v", err)
+	}
+	if len(afterStepDelete.SelectionSteps) != 1 {
+		t.Fatalf("expected 1 step got %d", len(afterStepDelete.SelectionSteps))
+	}
+
+	companyDeleteReq := httptest.NewRequest(http.MethodDelete, "/companies/"+created.ID, nil)
+	companyDeleteRec := httptest.NewRecorder()
+	mux.ServeHTTP(companyDeleteRec, companyDeleteReq)
+	if companyDeleteRec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d", companyDeleteRec.Code)
+	}
+
+	companies := mustListCompanies(t, mux, "/companies")
+	if len(companies) != 0 {
+		t.Fatalf("expected 0 companies got %d", len(companies))
 	}
 }
 

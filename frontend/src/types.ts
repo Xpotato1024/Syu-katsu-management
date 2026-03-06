@@ -4,6 +4,7 @@ export type SelectionStep = {
   title: string
   status: string
   scheduledAt?: string
+  note?: string
 }
 
 export type Company = {
@@ -22,16 +23,20 @@ export type StepDraft = {
   kind: string
   title: string
   status: string
+  scheduledAt: string
+  note: string
 }
 
 export type StepEdit = {
   status: string
   scheduledAt: string
+  note: string
 }
 
 export type CompanyDetailEdit = {
   mypageLink: string
   mypageId: string
+  selectionStatus: string
   researchContent: string
   esContent: string
 }
@@ -61,8 +66,11 @@ export type AgendaEvent = {
   companyName: string
   companyStatus: string
   stepID: string
+  stepKind: string
   stepLabel: string
   stepStatus: string
+  scheduledAt?: string
+  note?: string
 }
 
 export type AgendaGroup = {

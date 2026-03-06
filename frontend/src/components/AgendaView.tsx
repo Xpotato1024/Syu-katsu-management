@@ -1,5 +1,7 @@
 import type { AgendaEvent, AgendaGroup } from "../types"
-import { formatDayLabel } from "../utils/date"
+import { formatDayLabel, formatTimeLabel } from "../utils/date"
+import { stepKindTone } from "../utils/selection"
+import { StepNoteTooltip } from "./StepNoteTooltip"
 
 type AgendaViewProps = {
   timelineMonth: Date
@@ -30,9 +32,12 @@ export function AgendaView({
 }: AgendaViewProps) {
   return (
     <>
+      <section className="hero">
+        <p className="hero-sub">企業横断で当月予定を一覧化します。日付単位で時刻・ステータス・備考を確認できます。</p>
+      </section>
+
       <section className="panel timeline-toolbar">
         <h2>統合予定</h2>
-        <p className="muted">企業別ではなく、ユーザー全体の予定を日付ごとにまとめて表示します。</p>
         <div className="row">
           <button type="button" className="button-secondary" onClick={onPrevMonth}>
             前月
@@ -57,7 +62,9 @@ export function AgendaView({
       </section>
 
       <section className="panel agenda-panel">
-        {agendaEvents.length === 0 && <p className="muted">絞り込み条件に一致する予定がありません。企業管理で日程を追加して確認してください。</p>}
+        {agendaEvents.length === 0 && (
+          <p className="empty-state">絞り込み条件に一致する予定がありません。企業管理で日程を追加して確認してください。</p>
+        )}
 
         <div className="agenda-days">
           {agendaGroups.map((group) => (
@@ -71,11 +78,16 @@ export function AgendaView({
                   <div key={`${event.companyID}-${event.stepID}`} className="agenda-item">
                     <div className="agenda-main">
                       <span className="agenda-company">{event.companyName}</span>
-                      <span className="agenda-step">{event.stepLabel}</span>
+                      <span className="agenda-step-line">
+                        <span className={`step-kind-tag ${stepKindTone(event.stepKind)}`}>{event.stepKind}</span>
+                        <span className="agenda-step">{event.stepLabel}</span>
+                        <StepNoteTooltip note={event.note} triggerLabel="備考" />
+                      </span>
                     </div>
                     <div className="agenda-side">
                       <span className="agenda-company-status">{event.companyStatus || "未設定"}</span>
                       <span className="agenda-step-status">{event.stepStatus}</span>
+                      {event.scheduledAt && <span className="agenda-step-time">{formatTimeLabel(event.scheduledAt)}</span>}
                     </div>
                   </div>
                 ))}

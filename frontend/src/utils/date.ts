@@ -7,6 +7,23 @@ export function toDateInputValue(value?: string): string {
   return d.toISOString().slice(0, 10)
 }
 
+export function toDateTimeInputValue(value?: string): string {
+  if (!value) return ""
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ""
+
+  const offset = d.getTimezoneOffset()
+  const local = new Date(d.getTime() - offset * 60_000)
+  return local.toISOString().slice(0, 16)
+}
+
+export function formatTimeLabel(value?: string): string {
+  if (!value) return ""
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })
+}
+
 export function startOfMonth(base = new Date()): Date {
   return new Date(base.getFullYear(), base.getMonth(), 1)
 }
