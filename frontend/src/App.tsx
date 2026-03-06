@@ -129,9 +129,7 @@ export function App() {
       {navigation.activeView === "timeline" && (
         <TimelineView
           timelineMonth={timeline.timelineMonth}
-          onPrevMonth={timeline.prevMonth}
-          onNextMonth={timeline.nextMonth}
-          onResetMonth={timeline.resetMonth}
+          onSetMonth={timeline.setTimelineMonthByInput}
           calendarCompanyFilter={timeline.calendarCompanyFilter}
           onCalendarCompanyFilterChange={timeline.setCalendarCompanyFilter}
           onClearCalendarCompanyFilter={timeline.clearCalendarCompanyFilter}
@@ -147,9 +145,7 @@ export function App() {
       {navigation.activeView === "agenda" && (
         <AgendaView
           timelineMonth={timeline.timelineMonth}
-          onPrevMonth={timeline.prevMonth}
-          onNextMonth={timeline.nextMonth}
-          onResetMonth={timeline.resetMonth}
+          onSetMonth={timeline.setTimelineMonthByInput}
           calendarCompanyFilter={timeline.calendarCompanyFilter}
           onCalendarCompanyFilterChange={timeline.setCalendarCompanyFilter}
           onClearCalendarCompanyFilter={timeline.clearCalendarCompanyFilter}

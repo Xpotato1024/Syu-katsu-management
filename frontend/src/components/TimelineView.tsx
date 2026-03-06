@@ -1,15 +1,13 @@
 import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { weekdayShort } from "../constants"
-import type { Company, SelectionStep } from "../types"
-import { formatTimeLabel, toDateInputValue } from "../utils/date"
+import type { AgendaEvent, Company, SelectionStep } from "../types"
+import { formatTimeLabel, toDateInputValue, toMonthInputValue } from "../utils/date"
 import { stepKindTone, stepLabel } from "../utils/selection"
-import { StepNoteTooltip } from "./StepNoteTooltip"
+import { StepDetailModal } from "./StepDetailModal"
 
 type TimelineViewProps = {
   timelineMonth: Date
-  onPrevMonth: () => void
-  onNextMonth: () => void
-  onResetMonth: () => void
+  onSetMonth: (value: string) => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -47,9 +45,7 @@ function formatRangeLabel(days: Date[]): string {
 
 export function TimelineView({
   timelineMonth,
-  onPrevMonth,
-  onNextMonth,
-  onResetMonth,
+  onSetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -62,11 +58,13 @@ export function TimelineView({
 }: TimelineViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const headerRefs = useRef<Array<HTMLDivElement | null>>([])
+  const monthPickerRef = useRef<HTMLInputElement | null>(null)
   const [compactMode, setCompactMode] = useState(defaultCompactMode)
   const [collapsedCompanyIDs, setCollapsedCompanyIDs] = useState<Record<string, boolean>>({})
   const [rangeMode, setRangeMode] = useState<TimelineRangeMode>("month")
   const [rangeStartIndex, setRangeStartIndex] = useState(0)
   const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
+  const [activeEvent, setActiveEvent] = useState<AgendaEvent | null>(null)
 
   const today = useMemo(() => new Date(), [])
   const rangeSpan = useMemo(() => rangeSize(rangeMode, timelineDays.length), [rangeMode, timelineDays.length])
@@ -171,6 +169,7 @@ export function TimelineView({
 
   const hasCollapsedRows = useMemo(() => Object.values(collapsedCompanyIDs).some((value) => value), [collapsedCompanyIDs])
   const shownRangeLabel = useMemo(() => formatRangeLabel(displayedDays), [displayedDays])
+  const monthInputValue = useMemo(() => toMonthInputValue(timelineMonth), [timelineMonth])
   const firstVisibleDayKey = displayedDays.length > 0 ? toDateInputValue(displayedDays[0].toISOString()) : ""
   const lastVisibleDayKey =
     displayedDays.length > 0 ? toDateInputValue(displayedDays[displayedDays.length - 1].toISOString()) : ""
@@ -191,6 +190,16 @@ export function TimelineView({
     onCalendarCompanyFilterChange(filterInput)
   }
 
+  function openMonthPicker() {
+    const picker = monthPickerRef.current
+    if (!picker) return
+    if (typeof picker.showPicker === "function") {
+      picker.showPicker()
+      return
+    }
+    picker.click()
+  }
+
   return (
     <>
       <section className="hero">
@@ -200,30 +209,36 @@ export function TimelineView({
       <section className="panel timeline-toolbar">
         <h2>企業別カレンダー</h2>
         <div className="row timeline-row-month">
-          <button type="button" className="button-secondary" onClick={onPrevMonth}>
-            前月
+          <button type="button" className="month-badge timeline-month-badge month-badge-button" onClick={openMonthPicker}>
+            {`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}
+            <small>クリックで変更</small>
           </button>
-          <div className="month-badge timeline-month-badge">{`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}</div>
-          <button type="button" className="button-secondary" onClick={onNextMonth}>
-            次月
-          </button>
-          <button type="button" onClick={onResetMonth}>
-            今月へ
-          </button>
+          <input
+            ref={monthPickerRef}
+            className="month-picker-hidden"
+            type="month"
+            value={monthInputValue}
+            onChange={(changeEvent) => onSetMonth(changeEvent.target.value)}
+            aria-label="表示月を変更"
+          />
         </div>
         <div className="row timeline-range-switch timeline-row-range">
-          <button type="button" className={rangeMode === "3d" ? "button-secondary active-toggle" : "button-secondary"} onClick={() => setRangeMode("3d")}>
-            3日表示
-          </button>
-          <button type="button" className={rangeMode === "7d" ? "button-secondary active-toggle" : "button-secondary"} onClick={() => setRangeMode("7d")}>
-            7日表示
-          </button>
-          <button type="button" className={rangeMode === "month" ? "button-secondary active-toggle" : "button-secondary"} onClick={() => setRangeMode("month")}>
-            月表示
-          </button>
+          <label className="timeline-mode-select">
+            表示範囲
+            <select value={rangeMode} onChange={(changeEvent) => setRangeMode(changeEvent.target.value as TimelineRangeMode)}>
+              <option value="3d">3日表示</option>
+              <option value="7d">7日表示</option>
+              <option value="month">月表示</option>
+            </select>
+          </label>
           {rangeMode !== "month" && (
             <>
-              <button type="button" className="button-secondary" disabled={rangeStartIndex <= 0} onClick={() => setRangeStartIndex((prev) => Math.max(0, prev - rangeSpan))}>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={rangeStartIndex <= 0}
+                onClick={() => setRangeStartIndex((prev) => Math.max(0, prev - rangeSpan))}
+              >
                 期間←
               </button>
               <button
@@ -238,19 +253,23 @@ export function TimelineView({
           )}
           {shownRangeLabel && <span className="timeline-range-label">{shownRangeLabel}</span>}
         </div>
-        <form className="row timeline-row-filter" onSubmit={onFilterSubmit}>
-          <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名でカレンダー表示を絞り込み" />
-          <button type="submit">絞り込み</button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              setFilterInput("")
-              onClearCalendarCompanyFilter()
-            }}
-          >
-            クリア
-          </button>
+        <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
+          <div className="row timeline-filter-primary">
+            <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名でカレンダー表示を絞り込み" />
+            <button type="submit">絞り込み</button>
+          </div>
+          <div className="row timeline-filter-secondary">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => {
+                setFilterInput("")
+                onClearCalendarCompanyFilter()
+              }}
+            >
+              クリア
+            </button>
+          </div>
         </form>
         <div className="row timeline-row-toggles">
           <button
@@ -399,15 +418,34 @@ export function TimelineView({
                             entries.map((step) => {
                               const timeLabel = formatTimeLabel(step.scheduledAt)
                               const kindTone = stepKindTone(step.kind)
+                              const hasNote = !!step.note?.trim()
                               return (
-                                <div key={step.id} className="timeline-event">
+                                <button
+                                  key={step.id}
+                                  type="button"
+                                  className="timeline-event timeline-event-button"
+                                  onClick={() =>
+                                    setActiveEvent({
+                                      dayKey,
+                                      companyID: company.id,
+                                      companyName: company.name,
+                                      companyStatus: company.selectionStatus,
+                                      stepID: step.id,
+                                      stepKind: step.kind,
+                                      stepLabel: stepLabel(step),
+                                      stepStatus: step.status,
+                                      scheduledAt: step.scheduledAt,
+                                      note: step.note || ""
+                                    })
+                                  }
+                                >
                                   <div className="timeline-event-head">
                                     <span className={`step-kind-tag ${kindTone}`}>{step.kind}</span>
-                                    <StepNoteTooltip note={step.note} triggerLabel="備考" />
+                                    {hasNote && <span className="timeline-note-indicator">備考あり</span>}
                                   </div>
                                   <span className="timeline-event-label">{stepLabel(step)}</span>
                                   <small>{timeLabel ? `${timeLabel} / ${step.status}` : step.status}</small>
-                                </div>
+                                </button>
                               )
                             })}
                         </div>
@@ -420,6 +458,7 @@ export function TimelineView({
           </div>
         )}
       </section>
+      <StepDetailModal event={activeEvent} onClose={() => setActiveEvent(null)} />
     </>
   )
 }

@@ -4,7 +4,9 @@ export function toDateInputValue(value?: string): string {
   if (!value) return ""
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return ""
-  return d.toISOString().slice(0, 10)
+  const offset = d.getTimezoneOffset()
+  const local = new Date(d.getTime() - offset * 60_000)
+  return local.toISOString().slice(0, 10)
 }
 
 export function toDateTimeInputValue(value?: string): string {
@@ -55,4 +57,10 @@ export function buildMonthDays(base: Date): Date[] {
 export function formatDayLabel(dayKey: string): string {
   const day = new Date(`${dayKey}T00:00:00`)
   return `${day.getMonth() + 1}/${day.getDate()}（${weekdayShort[day.getDay()]}）`
+}
+
+export function toMonthInputValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  return `${year}-${month}`
 }

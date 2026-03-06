@@ -121,6 +121,18 @@ export function useTimeline({ companies }: UseTimelineArgs) {
     setCalendarCompanyFilter("")
   }, [])
 
+  const setTimelineMonthByInput = useCallback((value: string) => {
+    const candidate = value.trim()
+    if (!/^\d{4}-\d{2}$/.test(candidate)) return
+
+    const [yearRaw, monthRaw] = candidate.split("-")
+    const year = Number(yearRaw)
+    const month = Number(monthRaw)
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return
+    if (month < 1 || month > 12) return
+    setTimelineMonth(new Date(year, month - 1, 1))
+  }, [])
+
   return {
     timelineMonth,
     calendarCompanyFilter,
@@ -132,6 +144,7 @@ export function useTimeline({ companies }: UseTimelineArgs) {
     hasScheduledStepsForFilteredCompanies,
     agendaEvents,
     agendaGroups,
+    setTimelineMonthByInput,
     prevMonth,
     nextMonth,
     resetMonth,

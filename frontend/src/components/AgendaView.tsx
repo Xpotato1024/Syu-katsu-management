@@ -1,14 +1,12 @@
-import { type FormEvent, useEffect, useState } from "react"
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import type { AgendaEvent, AgendaGroup } from "../types"
-import { formatDayLabel, formatTimeLabel } from "../utils/date"
+import { formatDayLabel, formatTimeLabel, toMonthInputValue } from "../utils/date"
 import { stepKindTone } from "../utils/selection"
-import { StepNoteTooltip } from "./StepNoteTooltip"
+import { StepDetailModal } from "./StepDetailModal"
 
 type AgendaViewProps = {
   timelineMonth: Date
-  onPrevMonth: () => void
-  onNextMonth: () => void
-  onResetMonth: () => void
+  onSetMonth: (value: string) => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -20,9 +18,7 @@ type AgendaViewProps = {
 
 export function AgendaView({
   timelineMonth,
-  onPrevMonth,
-  onNextMonth,
-  onResetMonth,
+  onSetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -31,7 +27,10 @@ export function AgendaView({
   calendarFilteredCompanyCount,
   companiesCount
 }: AgendaViewProps) {
+  const monthPickerRef = useRef<HTMLInputElement | null>(null)
   const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
+  const [activeEvent, setActiveEvent] = useState<AgendaEvent | null>(null)
+  const monthInputValue = useMemo(() => toMonthInputValue(timelineMonth), [timelineMonth])
 
   useEffect(() => {
     setFilterInput(calendarCompanyFilter)
@@ -42,6 +41,16 @@ export function AgendaView({
     onCalendarCompanyFilterChange(filterInput)
   }
 
+  function openMonthPicker() {
+    const picker = monthPickerRef.current
+    if (!picker) return
+    if (typeof picker.showPicker === "function") {
+      picker.showPicker()
+      return
+    }
+    picker.click()
+  }
+
   return (
     <>
       <section className="hero">
@@ -50,31 +59,37 @@ export function AgendaView({
 
       <section className="panel timeline-toolbar">
         <h2>統合予定</h2>
-        <div className="row">
-          <button type="button" className="button-secondary" onClick={onPrevMonth}>
-            前月
+        <div className="row timeline-row-month">
+          <button type="button" className="month-badge month-badge-button" onClick={openMonthPicker}>
+            {`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}
+            <small>クリックで変更</small>
           </button>
-          <div className="month-badge">{`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}</div>
-          <button type="button" className="button-secondary" onClick={onNextMonth}>
-            次月
-          </button>
-          <button type="button" onClick={onResetMonth}>
-            今月へ
-          </button>
+          <input
+            ref={monthPickerRef}
+            className="month-picker-hidden"
+            type="month"
+            value={monthInputValue}
+            onChange={(changeEvent) => onSetMonth(changeEvent.target.value)}
+            aria-label="表示月を変更"
+          />
         </div>
-        <form className="row" onSubmit={onFilterSubmit}>
-          <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名で予定を絞り込み" />
-          <button type="submit">絞り込み</button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              setFilterInput("")
-              onClearCalendarCompanyFilter()
-            }}
-          >
-            クリア
-          </button>
+        <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
+          <div className="row timeline-filter-primary">
+            <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名で予定を絞り込み" />
+            <button type="submit">絞り込み</button>
+          </div>
+          <div className="row timeline-filter-secondary">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => {
+                setFilterInput("")
+                onClearCalendarCompanyFilter()
+              }}
+            >
+              クリア
+            </button>
+          </div>
         </form>
         <p className="muted timeline-meta">
           当月の予定件数: {agendaEvents.length}（表示企業 {calendarFilteredCompanyCount} / 全{companiesCount}）
@@ -95,13 +110,18 @@ export function AgendaView({
               </header>
               <div className="agenda-list">
                 {group.events.map((event) => (
-                  <div key={`${event.companyID}-${event.stepID}`} className="agenda-item">
+                  <button
+                    key={`${event.companyID}-${event.stepID}`}
+                    type="button"
+                    className="agenda-item agenda-item-button"
+                    onClick={() => setActiveEvent(event)}
+                  >
                     <div className="agenda-main">
                       <span className="agenda-company">{event.companyName}</span>
                       <span className="agenda-step-line">
                         <span className={`step-kind-tag ${stepKindTone(event.stepKind)}`}>{event.stepKind}</span>
                         <span className="agenda-step">{event.stepLabel}</span>
-                        <StepNoteTooltip note={event.note} triggerLabel="備考" />
+                        {event.note?.trim() && <span className="agenda-note-indicator">備考あり</span>}
                       </span>
                     </div>
                     <div className="agenda-side">
@@ -109,13 +129,14 @@ export function AgendaView({
                       <span className="agenda-step-status">{event.stepStatus}</span>
                       {event.scheduledAt && <span className="agenda-step-time">{formatTimeLabel(event.scheduledAt)}</span>}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </article>
           ))}
         </div>
       </section>
+      <StepDetailModal event={activeEvent} onClose={() => setActiveEvent(null)} />
     </>
   )
 }
