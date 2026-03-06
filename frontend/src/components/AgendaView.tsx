@@ -48,7 +48,8 @@ export function AgendaView({
       picker.showPicker()
       return
     }
-    picker.click()
+    const manualInput = window.prompt("表示月を YYYY-MM 形式で入力してください。", monthInputValue)
+    if (manualInput) onSetMonth(manualInput)
   }
 
   return (

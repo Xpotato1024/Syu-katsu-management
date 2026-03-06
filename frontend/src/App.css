@@ -397,12 +397,18 @@ body {
 .filter-row-primary,
 .timeline-filter-primary {
   align-items: stretch;
+  flex-wrap: nowrap;
 }
 
 .filter-row-primary input,
 .timeline-filter-primary input {
-  flex: 1 1 420px;
-  min-width: 240px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-row-primary button,
+.timeline-filter-primary button {
+  flex: 0 0 auto;
 }
 
 .filter-row-secondary,
@@ -649,7 +655,7 @@ button:focus-visible {
 
 .step-builder-row {
   display: grid;
-  grid-template-columns: minmax(120px, 140px) minmax(180px, 1fr) minmax(120px, 140px) minmax(170px, 210px) minmax(220px, 1fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1.4fr);
   gap: 8px;
   align-items: center;
   min-width: 0;
@@ -1844,6 +1850,7 @@ button:focus-visible {
 .agenda-item {
   padding: 10px 12px;
   border-top: 1px solid #edf2f8;
+  background: #fbfdff;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1853,12 +1860,17 @@ button:focus-visible {
   width: 100%;
   text-align: left;
   cursor: pointer;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
 }
 
 .agenda-item-button:hover,
 .agenda-item-button:active {
   transform: none;
   filter: none;
+  background: #f2f8ff;
 }
 
 .agenda-item:first-child {
@@ -1872,12 +1884,13 @@ button:focus-visible {
 
 .agenda-company {
   font-size: 12px;
-  color: #5b6f88;
+  color: #3f5a78;
 }
 
 .agenda-step {
   font-size: 14px;
   font-weight: 700;
+  color: #1d344f;
 }
 
 .agenda-step-line {
@@ -2497,7 +2510,21 @@ button:focus-visible {
 }
 
 .dark .agenda-item {
+  background: #16263d;
   border-top-color: #314963;
+}
+
+.dark .agenda-item-button:hover,
+.dark .agenda-item-button:active {
+  background: #1f324a;
+}
+
+.dark .agenda-company {
+  color: #a6c0dc;
+}
+
+.dark .agenda-step {
+  color: #edf4ff;
 }
 
 .dark .badge,
@@ -2787,10 +2814,9 @@ button:focus-visible {
   }
 
   .timeline-row-range {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: thin;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 
   .timeline-row-range button,
@@ -2801,7 +2827,7 @@ button:focus-visible {
   .filter-row-primary input,
   .timeline-filter-primary input {
     min-width: 0;
-    flex-basis: 100%;
+    flex-basis: auto;
   }
 
   .timeline-row-toggles {
@@ -2823,7 +2849,7 @@ button:focus-visible {
 
   .filter-row-secondary button,
   .timeline-filter-secondary button {
-    width: 100%;
+    width: auto;
   }
 
   .timeline-company {
