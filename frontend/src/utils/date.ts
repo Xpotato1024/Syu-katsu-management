@@ -17,6 +17,15 @@ export function toDateTimeInputValue(value?: string): string {
   return local.toISOString().slice(0, 16)
 }
 
+export function toScheduledAtPayload(value?: string): string {
+  const candidate = value?.trim() ?? ""
+  if (!candidate) return ""
+
+  const local = new Date(candidate)
+  if (Number.isNaN(local.getTime())) return candidate
+  return local.toISOString()
+}
+
 export function formatTimeLabel(value?: string): string {
   if (!value) return ""
   const d = new Date(value)

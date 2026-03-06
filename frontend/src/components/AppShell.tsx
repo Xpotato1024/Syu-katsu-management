@@ -114,10 +114,22 @@ export function AppShell({
             </a>
           )}
         </div>
-        <button type="button" className="theme-toggle drawer-theme-toggle" onClick={onToggleTheme} aria-label="テーマ切り替え">
-          <span className="theme-dot" />
-          {theme === "dark" ? "Dark" : "Light"}
-        </button>
+        <div className="drawer-theme-control">
+          <span className="drawer-theme-label">テーマ</span>
+          <button
+            type="button"
+            className={theme === "dark" ? "theme-switch on" : "theme-switch"}
+            onClick={onToggleTheme}
+            role="switch"
+            aria-checked={theme === "dark"}
+            aria-label="テーマ切り替え"
+          >
+            <span className="theme-switch-track" aria-hidden="true">
+              <span className="theme-switch-thumb" />
+            </span>
+            <span className="theme-switch-text">{theme === "dark" ? "Dark" : "Light"}</span>
+          </button>
+        </div>
       </aside>
 
       <button

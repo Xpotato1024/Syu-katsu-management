@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { companyStatusOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
-import { toDateTimeInputValue } from "../utils/date"
+import { toDateTimeInputValue, toScheduledAtPayload } from "../utils/date"
 import { newStepDraft } from "../utils/selection"
 import type { ToastTone } from "./useToast"
 
@@ -138,7 +138,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             kind: step.kind,
             title: step.title,
             status: step.status,
-            scheduledAt: step.scheduledAt,
+            scheduledAt: toScheduledAtPayload(step.scheduledAt),
             note: step.note
           })),
           esContent: "",
@@ -233,7 +233,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             kind: draft.kind,
             title: draft.title,
             status: draft.status,
-            scheduledAt: draft.scheduledAt,
+            scheduledAt: toScheduledAtPayload(draft.scheduledAt),
             note: draft.note
           })
         })
@@ -272,7 +272,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           id: step.id,
           title: edit.title,
           status: edit.status,
-          scheduledAt: edit.scheduledAt,
+          scheduledAt: toScheduledAtPayload(edit.scheduledAt),
           note: edit.note
         }
       })
