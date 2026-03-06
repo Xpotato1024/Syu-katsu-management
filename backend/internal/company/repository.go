@@ -440,17 +440,27 @@ func parseScheduledAt(raw string) (*time.Time, error) {
 		return nil, nil
 	}
 
-	layouts := []string{
-		time.RFC3339,
+	withTimezone := []string{time.RFC3339}
+	for _, layout := range withTimezone {
+		t, err := time.Parse(layout, candidate)
+		if err != nil {
+			continue
+		}
+		utc := t.UTC()
+		return &utc, nil
+	}
+
+	withoutTimezone := []string{
 		"2006-01-02",
 		"2006-01-02T15:04",
 	}
-	for _, layout := range layouts {
-		t, err := time.Parse(layout, candidate)
-		if err == nil {
-			utc := t.UTC()
-			return &utc, nil
+	for _, layout := range withoutTimezone {
+		t, err := time.ParseInLocation(layout, candidate, time.Local)
+		if err != nil {
+			continue
 		}
+		utc := t.UTC()
+		return &utc, nil
 	}
 	return nil, invalidInput("scheduledAt must be RFC3339, YYYY-MM-DD, or YYYY-MM-DDTHH:MM")
 }

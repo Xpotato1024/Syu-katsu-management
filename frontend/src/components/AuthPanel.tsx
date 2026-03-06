@@ -97,17 +97,19 @@ export function AuthPanel({ apiBase, loginURL, authConfig, viewer, viewerError, 
     return null
   }
 
+  if (authConfig.mode === "proxy_header" && viewer) {
+    return null
+  }
+
   return (
     <section className="panel auth-panel">
       <h2>ログイン</h2>
-      {viewer && (
+      {viewer && authConfig.mode === "local" && (
         <div className="auth-current">
           <p className="muted">ログイン中: {viewer.name || viewer.id}</p>
-          {authConfig.mode === "local" && (
-            <button type="button" onClick={() => void onLogout()} disabled={loading}>
-              ログアウト
-            </button>
-          )}
+          <button type="button" onClick={() => void onLogout()} disabled={loading}>
+            ログアウト
+          </button>
         </div>
       )}
       {!viewer && authConfig.mode === "proxy_header" && (

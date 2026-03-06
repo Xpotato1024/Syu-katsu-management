@@ -171,59 +171,64 @@ export function CompaniesView({
           <div className="step-builder">
             <div className="step-builder-header">
               <p>初期選考フロー</p>
-              <div className="step-builder-head-actions">
-                <span className="step-count">{newSteps.length} step</span>
-                <button type="button" className="button-secondary button-add-step-inline" onClick={onAddNewStep}>
-                  + ステップ追加
-                </button>
-              </div>
             </div>
             <div className="step-builder-list">
               {newSteps.map((step, index) => (
-                <div className="step-builder-row" key={`new-step-${index}`}>
-                  <select className="step-input-kind" value={step.kind} onChange={(e) => onUpdateNewStep(index, { kind: e.target.value })}>
-                    {stepKindOptions.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {kind}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="step-input-title"
-                    value={step.title}
-                    onChange={(e) => onUpdateNewStep(index, { title: e.target.value })}
-                    placeholder="表示名（任意）"
-                  />
-                  <select className="step-input-status" value={step.status} onChange={(e) => onUpdateNewStep(index, { status: e.target.value })}>
-                    {stepStatusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="step-input-datetime"
-                    type="datetime-local"
-                    value={step.scheduledAt}
-                    onChange={(e) => onUpdateNewStep(index, { scheduledAt: e.target.value })}
-                    aria-label="日時"
-                  />
-                  <input
-                    className="step-input-note"
-                    value={step.note}
-                    onChange={(e) => onUpdateNewStep(index, { note: e.target.value })}
-                    placeholder="備考（URL / 会場 / 持ち物）"
-                  />
-                  <button
-                    type="button"
-                    className="button-danger step-input-delete"
-                    onClick={() => onRemoveNewStep(index)}
-                    disabled={newSteps.length <= 1}
-                  >
-                    削除
-                  </button>
-                </div>
+                <article className="step-builder-item" key={`new-step-${index}`}>
+                  <div className="step-builder-item-head">
+                    <span className="step-order">STEP {index + 1}</span>
+                    <button
+                      type="button"
+                      className="button-danger step-input-delete"
+                      onClick={() => onRemoveNewStep(index)}
+                      disabled={newSteps.length <= 1}
+                    >
+                      削除
+                    </button>
+                  </div>
+                  <div className="step-builder-row">
+                    <select className="step-input-kind" value={step.kind} onChange={(e) => onUpdateNewStep(index, { kind: e.target.value })}>
+                      {stepKindOptions.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {kind}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="step-input-title"
+                      value={step.title}
+                      onChange={(e) => onUpdateNewStep(index, { title: e.target.value })}
+                      placeholder="表示名（任意）"
+                    />
+                    <select className="step-input-status" value={step.status} onChange={(e) => onUpdateNewStep(index, { status: e.target.value })}>
+                      {stepStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="step-input-datetime"
+                      type="datetime-local"
+                      value={step.scheduledAt}
+                      onChange={(e) => onUpdateNewStep(index, { scheduledAt: e.target.value })}
+                      aria-label="日時"
+                    />
+                    <input
+                      className="step-input-note"
+                      value={step.note}
+                      onChange={(e) => onUpdateNewStep(index, { note: e.target.value })}
+                      placeholder="備考（URL / 会場 / 持ち物）"
+                    />
+                  </div>
+                </article>
               ))}
+            </div>
+            <div className="step-builder-footer">
+              <span className="step-count">{newSteps.length} step</span>
+              <button type="button" className="button-secondary button-add-step-inline" onClick={onAddNewStep}>
+                + ステップ追加
+              </button>
             </div>
           </div>
 
@@ -344,16 +349,16 @@ export function CompaniesView({
                         placeholder="エントリーID"
                       />
                     </div>
-                    <div className="actions section-save-actions">
+                    <div className="actions section-save-actions company-info-actions">
                       <button type="button" onClick={() => onSaveCompanyInfo(company.id)} disabled={savingCompanyInfoID === company.id}>
                         {savingCompanyInfoID === company.id ? "保存中..." : "企業情報を保存"}
                       </button>
+                      {companyEdit.mypageLink && (
+                        <a className="doc-link inline-action-link" href={companyEdit.mypageLink} target="_blank" rel="noreferrer">
+                          エントリーページを開く
+                        </a>
+                      )}
                     </div>
-                    {companyEdit.mypageLink && (
-                      <a className="doc-link" href={companyEdit.mypageLink} target="_blank" rel="noreferrer">
-                        エントリーページを開く
-                      </a>
-                    )}
 
                     <h4>ドキュメント</h4>
                     <label className="doc-label" htmlFor={`research-${company.id}`}>
@@ -364,10 +369,10 @@ export function CompaniesView({
                         type="button"
                         className="button-secondary"
                         onClick={() => {
-                          if (companyEdit.researchContent.trim()) {
-                            const shouldOverwrite = window.confirm("企業研究ドキュメントをテンプレートで上書きします。続行しますか？")
-                            if (!shouldOverwrite) return
-                          }
+                          const shouldOverwrite = window.confirm(
+                            "企業研究ドキュメントにテンプレートを挿入します。現在の入力は上書きされます。続行しますか？"
+                          )
+                          if (!shouldOverwrite) return
                           onApplyResearchTemplate(company.id)
                           setDocMode(company.id, "research", "edit")
                         }}
@@ -456,9 +461,6 @@ export function CompaniesView({
                   <div className="step-list">
                     <div className="step-list-head">
                       <h4>選考フロー</h4>
-                      <button type="button" onClick={() => onSaveFlow(company.id)} disabled={savingFlowCompanyID === company.id}>
-                        {savingFlowCompanyID === company.id ? "保存中..." : "フローを保存"}
-                      </button>
                     </div>
                     {steps.map((step) => {
                       const edit = stepEdits[step.id] ?? {
@@ -471,9 +473,23 @@ export function CompaniesView({
 
                       return (
                         <div key={step.id} className="step-item">
-                          <div className="step-label">
-                            <span className="kind">{step.kind}</span>
-                            <strong>{liveLabel}</strong>
+                          <div className="step-item-head">
+                            <div className="step-label">
+                              <span className="kind">{step.kind}</span>
+                              <strong>{liveLabel}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              className="button-danger step-head-delete"
+                              onClick={() => {
+                                const shouldDelete = window.confirm(`「${stepLabel(step)}」を削除します。続行しますか？`)
+                                if (!shouldDelete) return
+                                onDeleteStep(company.id, step.id)
+                              }}
+                              disabled={deletingStepID === step.id}
+                            >
+                              {deletingStepID === step.id ? "削除中..." : "削除"}
+                            </button>
                           </div>
                           <div className="row step-row">
                             <input
@@ -501,18 +517,6 @@ export function CompaniesView({
                               onChange={(e) => onUpdateStepEdit(step.id, { note: e.target.value })}
                               placeholder="備考（URL / 会場 / 持ち物）"
                             />
-                            <button
-                              type="button"
-                              className="button-danger step-edit-delete"
-                              onClick={() => {
-                                const shouldDelete = window.confirm(`「${stepLabel(step)}」を削除します。続行しますか？`)
-                                if (!shouldDelete) return
-                                onDeleteStep(company.id, step.id)
-                              }}
-                              disabled={deletingStepID === step.id}
-                            >
-                              {deletingStepID === step.id ? "削除中..." : "削除"}
-                            </button>
                           </div>
                         </div>
                       )
@@ -553,6 +557,12 @@ export function CompaniesView({
                     </div>
                     <button type="button" className="button-secondary" onClick={() => onAddStepToCompany(company.id)}>
                       この企業にステップ追加
+                    </button>
+                  </div>
+
+                  <div className="actions section-save-actions flow-save-actions">
+                    <button type="button" onClick={() => onSaveFlow(company.id)} disabled={savingFlowCompanyID === company.id}>
+                      {savingFlowCompanyID === company.id ? "保存中..." : "フローを保存"}
                     </button>
                   </div>
                 </div>
