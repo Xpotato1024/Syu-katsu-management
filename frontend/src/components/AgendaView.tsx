@@ -1,3 +1,4 @@
+import { type FormEvent, useEffect, useState } from "react"
 import type { AgendaEvent, AgendaGroup } from "../types"
 import { formatDayLabel, formatTimeLabel } from "../utils/date"
 import { stepKindTone } from "../utils/selection"
@@ -30,6 +31,17 @@ export function AgendaView({
   calendarFilteredCompanyCount,
   companiesCount
 }: AgendaViewProps) {
+  const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
+
+  useEffect(() => {
+    setFilterInput(calendarCompanyFilter)
+  }, [calendarCompanyFilter])
+
+  function onFilterSubmit(event: FormEvent) {
+    event.preventDefault()
+    onCalendarCompanyFilterChange(filterInput)
+  }
+
   return (
     <>
       <section className="hero">
@@ -50,12 +62,20 @@ export function AgendaView({
             今月へ
           </button>
         </div>
-        <div className="row">
-          <input value={calendarCompanyFilter} onChange={(e) => onCalendarCompanyFilterChange(e.target.value)} placeholder="企業名で予定を絞り込み" />
-          <button type="button" className="button-secondary" onClick={onClearCalendarCompanyFilter}>
-            絞り込み解除
+        <form className="row" onSubmit={onFilterSubmit}>
+          <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名で予定を絞り込み" />
+          <button type="submit">絞り込み</button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              setFilterInput("")
+              onClearCalendarCompanyFilter()
+            }}
+          >
+            クリア
           </button>
-        </div>
+        </form>
         <p className="muted timeline-meta">
           当月の予定件数: {agendaEvents.length}（表示企業 {calendarFilteredCompanyCount} / 全{companiesCount}）
         </p>

@@ -29,9 +29,10 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
   const [filterStatuses, setFilterStatuses] = useState<string[]>(allCompanyStatuses)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [savingStepID, setSavingStepID] = useState("")
+  const [savingFlowCompanyID, setSavingFlowCompanyID] = useState("")
   const [deletingStepID, setDeletingStepID] = useState("")
-  const [savingCompanyID, setSavingCompanyID] = useState("")
+  const [savingCompanyInfoID, setSavingCompanyInfoID] = useState("")
+  const [savingDocumentsCompanyID, setSavingDocumentsCompanyID] = useState("")
   const [deletingCompanyID, setDeletingCompanyID] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
 
@@ -72,6 +73,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           for (const company of filteredData) {
             for (const step of company.selectionSteps || []) {
               next[step.id] = {
+                title: step.title || "",
                 status: step.status || stepStatusOptions[0],
                 scheduledAt: toDateTimeInputValue(step.scheduledAt),
                 note: step.note || ""
@@ -175,8 +177,8 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
   const clearFilter = useCallback(async () => {
     setFilterName("")
-    setFilterStatuses(allCompanyStatuses)
-    const ok = await loadCompanies("", allCompanyStatuses, { silent: true })
+    setFilterStatuses([])
+    const ok = await loadCompanies("", [], { silent: true })
     if (ok) {
       onToast?.("絞り込みを解除しました。", "info")
     }
@@ -196,6 +198,27 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
   const selectAllFilterStatuses = useCallback(() => {
     setFilterStatuses(allCompanyStatuses)
+  }, [])
+
+  const mergeCompanyFromServer = useCallback((updatedCompany: Company, syncStepEdits = true) => {
+    setCompanies((prev) => prev.map((company) => (company.id === updatedCompany.id ? updatedCompany : company)))
+
+    if (!syncStepEdits) {
+      return
+    }
+
+    setStepEdits((prev) => {
+      const next = { ...prev }
+      for (const step of updatedCompany.selectionSteps || []) {
+        next[step.id] = {
+          title: step.title || "",
+          status: step.status || stepStatusOptions[0],
+          scheduledAt: toDateTimeInputValue(step.scheduledAt),
+          note: step.note || ""
+        }
+      }
+      return next
+    })
   }, [])
 
   const addStepToCompany = useCallback(
@@ -233,22 +256,38 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     [apiBase, filterName, filterStatuses, loadCompanies, onToast, stepDraftByCompany]
   )
 
-  const saveStep = useCallback(
-    async (companyID: string, stepID: string) => {
-      const edit = stepEdits[stepID]
-      if (!edit) return
+  const saveFlow = useCallback(
+    async (companyID: string) => {
+      const company = companies.find((item) => item.id === companyID)
+      if (!company) return
 
-      setSavingStepID(stepID)
+      const payloadSteps = (company.selectionSteps || []).map((step) => {
+        const edit = stepEdits[step.id] ?? {
+          title: step.title || "",
+          status: step.status || stepStatusOptions[0],
+          scheduledAt: toDateTimeInputValue(step.scheduledAt),
+          note: step.note || ""
+        }
+        return {
+          id: step.id,
+          title: edit.title,
+          status: edit.status,
+          scheduledAt: edit.scheduledAt,
+          note: edit.note
+        }
+      })
+      if (payloadSteps.length === 0) {
+        onToast?.("保存対象の選考ステップがありません。", "info")
+        return
+      }
+
+      setSavingFlowCompanyID(companyID)
       setErrorMessage("")
       try {
-        const response = await fetch(`${apiBase}/companies/${companyID}/steps/${stepID}`, {
+        const response = await fetch(`${apiBase}/companies/${companyID}/steps/bulk`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: edit.status,
-            scheduledAt: edit.scheduledAt,
-            note: edit.note
-          })
+          body: JSON.stringify({ steps: payloadSteps })
         })
         if (response.status === 401) {
           const message = "ログインセッションがありません。Autheliaでログインしてください。"
@@ -256,18 +295,19 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           onToast?.(message, "error")
           return
         }
-        if (!response.ok) throw new Error(`failed to update step: ${response.status}`)
-        await loadCompanies(filterName, filterStatuses, { silent: true })
-        onToast?.("選考ステップを保存しました。", "success")
+        if (!response.ok) throw new Error(`failed to update steps: ${response.status}`)
+        const updatedCompany = (await response.json()) as Company
+        mergeCompanyFromServer(updatedCompany, true)
+        onToast?.("選考フローを保存しました。", "success")
       } catch (_error) {
-        const message = "選考ステップの更新に失敗しました。"
+        const message = "選考フローの更新に失敗しました。"
         setErrorMessage(message)
         onToast?.(message, "error")
       } finally {
-        setSavingStepID("")
+        setSavingFlowCompanyID("")
       }
     },
-    [apiBase, filterName, filterStatuses, loadCompanies, onToast, stepEdits]
+    [apiBase, companies, mergeCompanyFromServer, onToast, stepEdits]
   )
 
   const updateCompanyEdit = useCallback((companyID: string, patch: Partial<CompanyDetailEdit>) => {
@@ -319,14 +359,14 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     updateCompanyEdit(companyID, { researchContent: template })
   }, [updateCompanyEdit])
 
-  const saveCompanyDetail = useCallback(
+  const saveCompanyInfo = useCallback(
     async (companyID: string) => {
       const company = companies.find((item) => item.id === companyID)
       if (!company) return
       const edit = companyEdits[companyID]
       if (!edit) return
 
-      setSavingCompanyID(companyID)
+      setSavingCompanyInfoID(companyID)
       setErrorMessage("")
       try {
         const response = await fetch(`${apiBase}/companies/${companyID}`, {
@@ -345,6 +385,57 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
               scheduledAt: step.scheduledAt || "",
               note: step.note || ""
             })),
+            esContent: company.esContent || "",
+            researchContent: company.researchContent || ""
+          })
+        })
+        if (response.status === 401) {
+          const message = "ログインセッションがありません。Autheliaでログインしてください。"
+          setErrorMessage(message)
+          onToast?.(message, "error")
+          return
+        }
+        if (!response.ok) throw new Error(`failed to update company: ${response.status}`)
+        const updatedCompany = (await response.json()) as Company
+        mergeCompanyFromServer(updatedCompany, false)
+        onToast?.("企業情報を保存しました。", "success")
+      } catch (_error) {
+        const message = "企業情報の更新に失敗しました。"
+        setErrorMessage(message)
+        onToast?.(message, "error")
+      } finally {
+        setSavingCompanyInfoID("")
+      }
+    },
+    [apiBase, companies, companyEdits, mergeCompanyFromServer, onToast]
+  )
+
+  const saveCompanyDocuments = useCallback(
+    async (companyID: string) => {
+      const company = companies.find((item) => item.id === companyID)
+      if (!company) return
+      const edit = companyEdits[companyID]
+      if (!edit) return
+
+      setSavingDocumentsCompanyID(companyID)
+      setErrorMessage("")
+      try {
+        const response = await fetch(`${apiBase}/companies/${companyID}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: company.name,
+            mypageLink: company.mypageLink || "",
+            mypageId: company.mypageId || "",
+            selectionFlow: company.selectionFlow || "",
+            selectionStatus: company.selectionStatus || companyStatusOptions[0],
+            selectionSteps: (company.selectionSteps || []).map((step) => ({
+              kind: step.kind,
+              title: step.title,
+              status: step.status,
+              scheduledAt: step.scheduledAt || "",
+              note: step.note || ""
+            })),
             esContent: edit.esContent,
             researchContent: edit.researchContent
           })
@@ -355,18 +446,19 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           onToast?.(message, "error")
           return
         }
-        if (!response.ok) throw new Error(`failed to update company: ${response.status}`)
-        await loadCompanies(filterName, filterStatuses, { silent: true })
-        onToast?.("企業情報を保存しました。", "success")
+        if (!response.ok) throw new Error(`failed to update company documents: ${response.status}`)
+        const updatedCompany = (await response.json()) as Company
+        mergeCompanyFromServer(updatedCompany, false)
+        onToast?.("ドキュメントを保存しました。", "success")
       } catch (_error) {
-        const message = "企業詳細の更新に失敗しました。"
+        const message = "ドキュメントの保存に失敗しました。"
         setErrorMessage(message)
         onToast?.(message, "error")
       } finally {
-        setSavingCompanyID("")
+        setSavingDocumentsCompanyID("")
       }
     },
-    [apiBase, companies, companyEdits, filterName, filterStatuses, loadCompanies, onToast]
+    [apiBase, companies, companyEdits, mergeCompanyFromServer, onToast]
   )
 
   const deleteStep = useCallback(
@@ -451,7 +543,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
   const updateStepEdit = useCallback((stepID: string, patch: Partial<StepEdit>) => {
     setStepEdits((prev) => {
-      const current = prev[stepID] ?? { status: stepStatusOptions[0], scheduledAt: "", note: "" }
+      const current = prev[stepID] ?? { title: "", status: stepStatusOptions[0], scheduledAt: "", note: "" }
       return { ...prev, [stepID]: { ...current, ...patch } }
     })
   }, [])
@@ -491,9 +583,10 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     selectAllFilterStatuses,
     loading,
     submitting,
-    savingStepID,
+    savingFlowCompanyID,
     deletingStepID,
-    savingCompanyID,
+    savingCompanyInfoID,
+    savingDocumentsCompanyID,
     deletingCompanyID,
     errorMessage,
     loadCompanies,
@@ -501,11 +594,12 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     applyFilter,
     clearFilter,
     addStepToCompany,
-    saveStep,
+    saveFlow,
     deleteStep,
     updateCompanyEdit,
     applyResearchTemplate,
-    saveCompanyDetail,
+    saveCompanyInfo,
+    saveCompanyDocuments,
     deleteCompany,
     toggleCompanyDetail,
     updateNewStep,

@@ -192,12 +192,23 @@ func (r *Repository) AddStep(userID, companyID string, input SelectionStepInput)
 }
 
 func (r *Repository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
+	return r.UpdateSteps(userID, companyID, []SelectionStepBulkUpdateItem{
+		{
+			ID:          stepID,
+			Title:       input.Title,
+			Status:      input.Status,
+			ScheduledAt: input.ScheduledAt,
+			Note:        input.Note,
+		},
+	})
+}
+
+func (r *Repository) UpdateSteps(userID, companyID string, steps []SelectionStepBulkUpdateItem) (Company, error) {
 	if strings.TrimSpace(userID) == "" {
 		return Company{}, invalidInput("user id is required")
 	}
-
-	if input.Status == nil && input.ScheduledAt == nil && input.Note == nil {
-		return Company{}, fmt.Errorf("%w: status or scheduledAt or note is required", ErrInvalidInput)
+	if len(steps) == 0 {
+		return Company{}, fmt.Errorf("%w: steps is required", ErrInvalidInput)
 	}
 
 	r.mu.Lock()
@@ -209,37 +220,53 @@ func (r *Repository) UpdateStep(userID, companyID, stepID string, input Selectio
 		return Company{}, ErrNotFound
 	}
 
-	index := -1
-	for i, step := range existing.SelectionSteps {
-		if step.ID == stepID {
-			index = i
-			break
-		}
-	}
-	if index == -1 {
-		return Company{}, ErrStepNotFound
+	indexByStepID := make(map[string]int, len(existing.SelectionSteps))
+	for index, step := range existing.SelectionSteps {
+		indexByStepID[step.ID] = index
 	}
 
-	step := existing.SelectionSteps[index]
-	if input.Status != nil {
-		normalizedStatus, err := normalizeSelectionStepStatus(*input.Status)
-		if err != nil {
-			return Company{}, err
+	for _, patch := range steps {
+		stepID := strings.TrimSpace(patch.ID)
+		if stepID == "" {
+			return Company{}, invalidInput("step id is required")
 		}
-		step.Status = normalizedStatus
-	}
-	if input.ScheduledAt != nil {
-		scheduledAt, err := parseScheduledAt(*input.ScheduledAt)
-		if err != nil {
-			return Company{}, err
+		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.Note == nil {
+			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or note is required", ErrInvalidInput)
 		}
-		step.ScheduledAt = scheduledAt
-	}
-	if input.Note != nil {
-		step.Note = strings.TrimSpace(*input.Note)
+
+		index, exists := indexByStepID[stepID]
+		if !exists {
+			return Company{}, ErrStepNotFound
+		}
+
+		step := existing.SelectionSteps[index]
+		if patch.Title != nil {
+			title := strings.TrimSpace(*patch.Title)
+			if title == "" {
+				title = step.Kind
+			}
+			step.Title = title
+		}
+		if patch.Status != nil {
+			normalizedStatus, err := normalizeSelectionStepStatus(*patch.Status)
+			if err != nil {
+				return Company{}, err
+			}
+			step.Status = normalizedStatus
+		}
+		if patch.ScheduledAt != nil {
+			scheduledAt, err := parseScheduledAt(*patch.ScheduledAt)
+			if err != nil {
+				return Company{}, err
+			}
+			step.ScheduledAt = scheduledAt
+		}
+		if patch.Note != nil {
+			step.Note = strings.TrimSpace(*patch.Note)
+		}
+		existing.SelectionSteps[index] = step
 	}
 
-	existing.SelectionSteps[index] = step
 	existing.SelectionFlow = composeSelectionFlow(existing.SelectionSteps)
 	existing.UpdatedAt = time.Now().UTC()
 

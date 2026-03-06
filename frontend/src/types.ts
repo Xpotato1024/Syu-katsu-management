@@ -28,6 +28,7 @@ export type StepDraft = {
 }
 
 export type StepEdit = {
+  title: string
   status: string
   scheduledAt: string
   note: string

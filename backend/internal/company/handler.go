@@ -202,6 +202,8 @@ func (h *Handler) companyByID(w http.ResponseWriter, r *http.Request) {
 		h.handleCompanyResource(w, r, user.ID, companyID)
 	case len(parts) == 2 && parts[1] == "steps":
 		h.handleAddStep(w, r, user.ID, companyID)
+	case len(parts) == 3 && parts[1] == "steps" && parts[2] == "bulk":
+		h.handleBulkStepUpdate(w, r, user.ID, companyID)
 	case len(parts) == 3 && parts[1] == "steps":
 		h.handleStepResource(w, r, user.ID, companyID, parts[2])
 	default:
@@ -320,6 +322,38 @@ func (h *Handler) handleStepResource(w http.ResponseWriter, r *http.Request, use
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update step"})
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Handler) handleBulkStepUpdate(w http.ResponseWriter, r *http.Request, userID, companyID string) {
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input SelectionStepBulkUpdateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+	if len(input.Steps) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "steps is required"})
+		return
+	}
+
+	updated, err := h.repo.UpdateSteps(userID, companyID, input.Steps)
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrStepNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, ErrInvalidInput) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update steps"})
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)

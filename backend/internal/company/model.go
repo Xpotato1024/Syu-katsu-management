@@ -45,7 +45,20 @@ type SelectionStepInput struct {
 }
 
 type SelectionStepUpdateInput struct {
+	Title       *string `json:"title"`
 	Status      *string `json:"status"`
 	ScheduledAt *string `json:"scheduledAt"`
 	Note        *string `json:"note"`
+}
+
+type SelectionStepBulkUpdateItem struct {
+	ID          string  `json:"id"`
+	Title       *string `json:"title"`
+	Status      *string `json:"status"`
+	ScheduledAt *string `json:"scheduledAt"`
+	Note        *string `json:"note"`
+}
+
+type SelectionStepBulkUpdateInput struct {
+	Steps []SelectionStepBulkUpdateItem `json:"steps"`
 }
