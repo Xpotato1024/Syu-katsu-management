@@ -112,9 +112,11 @@ export function CompaniesView({
       <section className="panel">
         <h2>企業検索</h2>
         <form onSubmit={onFilterSubmit} className="stack filter-form">
-          <div className="row">
+          <div className="row filter-row-primary">
             <input value={filterName} onChange={(e) => onFilterNameChange(e.target.value)} placeholder="企業名で検索" />
             <button type="submit">絞り込み</button>
+          </div>
+          <div className="row filter-row-secondary">
             <button type="button" className="button-secondary" onClick={onClearFilter}>
               クリア
             </button>
@@ -350,14 +352,14 @@ export function CompaniesView({
                       />
                     </div>
                     <div className="actions section-save-actions company-info-actions">
-                      <button type="button" onClick={() => onSaveCompanyInfo(company.id)} disabled={savingCompanyInfoID === company.id}>
-                        {savingCompanyInfoID === company.id ? "保存中..." : "企業情報を保存"}
-                      </button>
                       {companyEdit.mypageLink && (
                         <a className="doc-link inline-action-link" href={companyEdit.mypageLink} target="_blank" rel="noreferrer">
                           エントリーページを開く
                         </a>
                       )}
+                      <button type="button" onClick={() => onSaveCompanyInfo(company.id)} disabled={savingCompanyInfoID === company.id}>
+                        {savingCompanyInfoID === company.id ? "保存中..." : "企業情報を保存"}
+                      </button>
                     </div>
 
                     <h4>ドキュメント</h4>
