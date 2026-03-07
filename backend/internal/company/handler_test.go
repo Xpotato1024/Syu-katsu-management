@@ -18,7 +18,7 @@ func TestCreateAndListCompanies(t *testing.T) {
 	mux := http.NewServeMux()
 	h.Register(mux)
 
-	body, _ := json.Marshal(UpsertInput{Name: "OpenAI", SelectionStatus: "進行中"})
+	body, _ := json.Marshal(UpsertInput{Name: "OpenAI", SelectionStatus: "進行中", InterestLevel: "高"})
 	createReq := httptest.NewRequest(http.MethodPost, "/companies", bytes.NewReader(body))
 	createRec := httptest.NewRecorder()
 	mux.ServeHTTP(createRec, createReq)
@@ -42,6 +42,9 @@ func TestCreateAndListCompanies(t *testing.T) {
 	}
 	if companies[0].SelectionStatus != "選考中" {
 		t.Fatalf("unexpected selection status: %s", companies[0].SelectionStatus)
+	}
+	if companies[0].InterestLevel != "高" {
+		t.Fatalf("unexpected interest level: %s", companies[0].InterestLevel)
 	}
 }
 
@@ -88,10 +91,11 @@ func TestCreateCompanyWithSelectionSteps(t *testing.T) {
 	created := mustCreateCompanyAndReturn(t, mux, UpsertInput{
 		Name:            "Example Corp",
 		SelectionStatus: "進行中",
+		InterestLevel:   "中",
 		SelectionSteps: []SelectionStepInput{
-			{Kind: "エントリー", Status: "通過"},
+			{Kind: "エントリー", Status: "通過", DurationMinutes: 15},
 			{Kind: "ES"},
-			{Kind: "Webテスト", Status: "予定"},
+			{Kind: "Webテスト", Status: "予定", DurationMinutes: 60},
 		},
 	})
 
@@ -103,6 +107,15 @@ func TestCreateCompanyWithSelectionSteps(t *testing.T) {
 	}
 	if created.SelectionSteps[0].ID == "" {
 		t.Fatalf("step id should not be empty")
+	}
+	if created.InterestLevel != "中" {
+		t.Fatalf("unexpected interest level: %s", created.InterestLevel)
+	}
+	if created.SelectionSteps[0].DurationMinutes != 15 {
+		t.Fatalf("unexpected duration minutes: %d", created.SelectionSteps[0].DurationMinutes)
+	}
+	if created.SelectionSteps[2].DurationMinutes != 60 {
+		t.Fatalf("unexpected duration minutes: %d", created.SelectionSteps[2].DurationMinutes)
 	}
 }
 
@@ -136,9 +149,10 @@ func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 
 	stepID := afterAdd.SelectionSteps[0].ID
 	updateBody, _ := json.Marshal(SelectionStepUpdateInput{
-		Status:      ptr("予定"),
-		ScheduledAt: ptr("2026-03-20T10:30"),
-		Note:        ptr("Zoom URL: https://example.com/interview"),
+		Status:          ptr("予定"),
+		ScheduledAt:     ptr("2026-03-20T10:30"),
+		DurationMinutes: intPtr(45),
+		Note:            ptr("Zoom URL: https://example.com/interview"),
 	})
 	updateReq := httptest.NewRequest(http.MethodPut, "/companies/"+created.ID+"/steps/"+stepID, bytes.NewReader(updateBody))
 	updateRec := httptest.NewRecorder()
@@ -163,6 +177,9 @@ func TestAddAndUpdateSelectionStepSchedule(t *testing.T) {
 	}
 	if step.Note != "Zoom URL: https://example.com/interview" {
 		t.Fatalf("unexpected note: %s", step.Note)
+	}
+	if step.DurationMinutes != 45 {
+		t.Fatalf("unexpected duration minutes: %d", step.DurationMinutes)
 	}
 }
 
@@ -234,18 +251,20 @@ func TestBulkUpdateSelectionSteps(t *testing.T) {
 	updateBody, _ := json.Marshal(SelectionStepBulkUpdateInput{
 		Steps: []SelectionStepBulkUpdateItem{
 			{
-				ID:          created.SelectionSteps[0].ID,
-				Title:       ptr("書類選考"),
-				Status:      ptr("通過"),
-				ScheduledAt: ptr("2026-03-12T10:00"),
-				Note:        ptr("提出完了"),
+				ID:              created.SelectionSteps[0].ID,
+				Title:           ptr("書類選考"),
+				Status:          ptr("通過"),
+				ScheduledAt:     ptr("2026-03-12T10:00"),
+				DurationMinutes: intPtr(20),
+				Note:            ptr("提出完了"),
 			},
 			{
-				ID:          created.SelectionSteps[1].ID,
-				Title:       ptr("一次面接"),
-				Status:      ptr("予定"),
-				ScheduledAt: ptr("2026-03-20T14:30"),
-				Note:        ptr("Zoom URL"),
+				ID:              created.SelectionSteps[1].ID,
+				Title:           ptr("一次面接"),
+				Status:          ptr("予定"),
+				ScheduledAt:     ptr("2026-03-20T14:30"),
+				DurationMinutes: intPtr(50),
+				Note:            ptr("Zoom URL"),
 			},
 		},
 	})
@@ -266,8 +285,14 @@ func TestBulkUpdateSelectionSteps(t *testing.T) {
 	if afterUpdate.SelectionSteps[0].Title != "書類選考" {
 		t.Fatalf("unexpected first step title: %s", afterUpdate.SelectionSteps[0].Title)
 	}
+	if afterUpdate.SelectionSteps[0].DurationMinutes != 20 {
+		t.Fatalf("unexpected first step duration: %d", afterUpdate.SelectionSteps[0].DurationMinutes)
+	}
 	if afterUpdate.SelectionSteps[1].Title != "一次面接" {
 		t.Fatalf("unexpected second step title: %s", afterUpdate.SelectionSteps[1].Title)
+	}
+	if afterUpdate.SelectionSteps[1].DurationMinutes != 50 {
+		t.Fatalf("unexpected second step duration: %d", afterUpdate.SelectionSteps[1].DurationMinutes)
 	}
 }
 
@@ -411,6 +436,10 @@ func mustListCompanies(t *testing.T, mux *http.ServeMux, path string) []Company 
 }
 
 func ptr(v string) *string {
+	return &v
+}
+
+func intPtr(v int) *int {
 	return &v
 }
 

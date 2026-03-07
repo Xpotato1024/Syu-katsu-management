@@ -28,11 +28,49 @@ export function toScheduledAtPayload(value?: string): string {
   return local.toISOString()
 }
 
+export function toDurationInputValue(value?: number): string {
+  if (!value || value <= 0) return ""
+  return String(value)
+}
+
+export function toDurationMinutesPayload(value?: string): number {
+  const candidate = value?.trim() ?? ""
+  if (!candidate) return 0
+
+  const parsed = Number(candidate)
+  if (!Number.isFinite(parsed) || parsed < 0) return 0
+  return Math.round(parsed)
+}
+
 export function formatTimeLabel(value?: string): string {
   if (!value) return ""
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return ""
   return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })
+}
+
+export function formatDurationLabel(value?: number): string {
+  if (!value || value <= 0) return ""
+
+  const hours = Math.floor(value / 60)
+  const minutes = value % 60
+  if (hours > 0 && minutes > 0) return `${hours}時間${minutes}分`
+  if (hours > 0) return `${hours}時間`
+  return `${minutes}分`
+}
+
+export function formatRemainingLabel(value?: string, base = new Date()): string {
+  if (!value) return ""
+  const target = new Date(value)
+  if (Number.isNaN(target.getTime())) return ""
+
+  const baseDay = new Date(base.getFullYear(), base.getMonth(), base.getDate())
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+  const diffDays = Math.round((targetDay.getTime() - baseDay.getTime()) / 86_400_000)
+
+  if (diffDays > 0) return `D-${diffDays}`
+  if (diffDays === 0) return "本日"
+  return `期限超過${Math.abs(diffDays)}日`
 }
 
 export function startOfMonth(base = new Date()): Date {

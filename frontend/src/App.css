@@ -14,6 +14,30 @@
   --topbar-text: #eaf4ff;
 }
 
+.step-input-duration,
+.step-edit-duration,
+.step-inline-duration {
+  width: min(132px, 100%);
+  min-width: 0;
+}
+
+.step-input-duration::-webkit-outer-spin-button,
+.step-input-duration::-webkit-inner-spin-button,
+.step-edit-duration::-webkit-outer-spin-button,
+.step-edit-duration::-webkit-inner-spin-button,
+.step-inline-duration::-webkit-outer-spin-button,
+.step-inline-duration::-webkit-inner-spin-button {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .step-input-duration,
+  .step-edit-duration,
+  .step-inline-duration {
+    width: 100%;
+  }
+}
+
 :root.dark {
   color-scheme: dark;
   --bg-top: #0b1220;
@@ -998,11 +1022,36 @@ button:focus-visible {
 
 .step-input-datetime,
 .step-edit-datetime,
-.inline-step-add input[type="datetime-local"] {
+.step-inline-datetime {
+  display: block;
   width: 100%;
   min-width: 0;
   max-width: 100%;
   max-inline-size: 100%;
+}
+
+.step-input-datetime input,
+.step-edit-datetime input,
+.step-inline-datetime input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  max-inline-size: 100%;
+}
+
+.datetime-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.datetime-split-date,
+.datetime-split-time {
+  width: 100%;
+  min-width: 0;
 }
 
 .inline-step-add {
@@ -1667,6 +1716,16 @@ button:focus-visible {
   padding: 1px 6px;
 }
 
+.timeline-remaining-label {
+  border: 1px solid #d8c186;
+  border-radius: 999px;
+  background: #fff7e5;
+  color: #7a5b1f;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+}
+
 .timeline-event small {
   font-size: 10px;
   color: #28717a;
@@ -1923,6 +1982,16 @@ button:focus-visible {
   border-radius: 999px;
   background: #f1f8ff;
   color: #466a89;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+}
+
+.agenda-remaining-label {
+  border: 1px solid #d8c186;
+  border-radius: 999px;
+  background: #fff7e5;
+  color: #7a5b1f;
   font-size: 10px;
   font-weight: 700;
   padding: 1px 6px;
@@ -2607,6 +2676,13 @@ button:focus-visible {
   color: #cfe1f5;
 }
 
+.dark .timeline-remaining-label,
+.dark .agenda-remaining-label {
+  border-color: #8b7440;
+  background: #3c3118;
+  color: #f8df9e;
+}
+
 .dark .agenda-note,
 .dark .agenda-step-time {
   color: #8ea4bf;
@@ -2968,7 +3044,10 @@ button:focus-visible {
   }
 
   .step-builder-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
 
   .step-input-kind,
@@ -2976,7 +3055,7 @@ button:focus-visible {
   .step-input-status,
   .step-input-datetime,
   .step-input-note {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .button-add-step-inline {
@@ -3005,8 +3084,15 @@ button:focus-visible {
 
   .step-input-datetime,
   .step-edit-datetime,
+  .step-inline-datetime,
+  .datetime-split-date,
+  .datetime-split-time,
   input[type="datetime-local"] {
-    font-size: 15px;
+    font-size: 16px;
+  }
+
+  .datetime-split {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .agenda-item {

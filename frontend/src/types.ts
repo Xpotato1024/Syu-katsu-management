@@ -4,6 +4,7 @@ export type SelectionStep = {
   title: string
   status: string
   scheduledAt?: string
+  durationMinutes: number
   note?: string
 }
 
@@ -12,6 +13,7 @@ export type Company = {
   name: string
   mypageLink?: string
   mypageId?: string
+  interestLevel: string
   selectionStatus: string
   selectionFlow: string
   selectionSteps: SelectionStep[]
@@ -24,6 +26,7 @@ export type StepDraft = {
   title: string
   status: string
   scheduledAt: string
+  durationMinutes: string
   note: string
 }
 
@@ -31,12 +34,14 @@ export type StepEdit = {
   title: string
   status: string
   scheduledAt: string
+  durationMinutes: string
   note: string
 }
 
 export type CompanyDetailEdit = {
   mypageLink: string
   mypageId: string
+  interestLevel: string
   selectionStatus: string
   researchContent: string
   esContent: string
@@ -71,6 +76,7 @@ export type AgendaEvent = {
   stepLabel: string
   stepStatus: string
   scheduledAt?: string
+  durationMinutes: number
   note?: string
 }
 

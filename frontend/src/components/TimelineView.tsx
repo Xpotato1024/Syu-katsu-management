@@ -1,7 +1,7 @@
 import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { weekdayShort } from "../constants"
 import type { AgendaEvent, Company, SelectionStep } from "../types"
-import { formatTimeLabel, toDateInputValue, toMonthInputValue } from "../utils/date"
+import { formatDurationLabel, formatRemainingLabel, formatTimeLabel, toDateInputValue, toMonthInputValue } from "../utils/date"
 import { stepKindTone, stepLabel } from "../utils/selection"
 import { StepDetailModal } from "./StepDetailModal"
 
@@ -456,6 +456,8 @@ export function TimelineView({
                           {!rowCollapsed &&
                             entries.map((step) => {
                               const timeLabel = formatTimeLabel(step.scheduledAt)
+                              const durationLabel = formatDurationLabel(step.durationMinutes)
+                              const remainingLabel = formatRemainingLabel(step.scheduledAt, today)
                               const kindTone = stepKindTone(step.kind)
                               const hasNote = !!step.note?.trim()
                               return (
@@ -474,6 +476,7 @@ export function TimelineView({
                                       stepLabel: stepLabel(step),
                                       stepStatus: step.status,
                                       scheduledAt: step.scheduledAt,
+                                      durationMinutes: step.durationMinutes || 0,
                                       note: step.note || ""
                                     })
                                   }
@@ -481,9 +484,13 @@ export function TimelineView({
                                   <div className="timeline-event-head">
                                     <span className={`step-kind-tag ${kindTone}`}>{step.kind}</span>
                                     {hasNote && <span className="timeline-note-indicator">備考あり</span>}
+                                    {remainingLabel && <span className="timeline-remaining-label">{remainingLabel}</span>}
                                   </div>
                                   <span className="timeline-event-label">{stepLabel(step)}</span>
-                                  <small>{timeLabel ? `${timeLabel} / ${step.status}` : step.status}</small>
+                                  <small>
+                                    {timeLabel ? `${timeLabel} / ${step.status}` : step.status}
+                                    {durationLabel ? ` / ${durationLabel}` : ""}
+                                  </small>
                                 </button>
                               )
                             })}

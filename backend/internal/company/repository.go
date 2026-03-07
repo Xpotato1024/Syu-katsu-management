@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	DefaultCompanyStatus = "未着手"
+	DefaultCompanyStatus  = "未着手"
+	DefaultInterestLevel = "未設定"
+	MaxDurationMinutes   = 24 * 60
 )
 
 var (
@@ -79,6 +81,10 @@ func (r *Repository) Create(userID string, input UpsertInput) (Company, error) {
 	if err != nil {
 		return Company{}, err
 	}
+	interestLevel, err := normalizeInterestLevel(input.InterestLevel)
+	if err != nil {
+		return Company{}, err
+	}
 	steps, err := buildSelectionSteps(input.SelectionSteps)
 	if err != nil {
 		return Company{}, err
@@ -95,6 +101,7 @@ func (r *Repository) Create(userID string, input UpsertInput) (Company, error) {
 		Name:            strings.TrimSpace(input.Name),
 		MypageLink:      strings.TrimSpace(input.MypageLink),
 		MypageID:        strings.TrimSpace(input.MypageID),
+		InterestLevel:   interestLevel,
 		SelectionFlow:   selectionFlow,
 		SelectionStatus: selectionStatus,
 		SelectionSteps:  steps,
@@ -135,9 +142,20 @@ func (r *Repository) Update(userID, id string, input UpsertInput) (Company, erro
 		status = DefaultCompanyStatus
 	}
 
+	interestLevel := existing.InterestLevel
+	if strings.TrimSpace(input.InterestLevel) != "" {
+		interestLevel, err = normalizeInterestLevel(input.InterestLevel)
+		if err != nil {
+			return Company{}, err
+		}
+	} else if interestLevel == "" {
+		interestLevel = DefaultInterestLevel
+	}
+
 	existing.Name = strings.TrimSpace(input.Name)
 	existing.MypageLink = strings.TrimSpace(input.MypageLink)
 	existing.MypageID = strings.TrimSpace(input.MypageID)
+	existing.InterestLevel = interestLevel
 	existing.SelectionStatus = status
 	existing.ESContent = input.ESContent
 	existing.ResearchContent = input.ResearchContent
@@ -194,11 +212,12 @@ func (r *Repository) AddStep(userID, companyID string, input SelectionStepInput)
 func (r *Repository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
 	return r.UpdateSteps(userID, companyID, []SelectionStepBulkUpdateItem{
 		{
-			ID:          stepID,
-			Title:       input.Title,
-			Status:      input.Status,
-			ScheduledAt: input.ScheduledAt,
-			Note:        input.Note,
+			ID:              stepID,
+			Title:           input.Title,
+			Status:          input.Status,
+			ScheduledAt:     input.ScheduledAt,
+			DurationMinutes: input.DurationMinutes,
+			Note:            input.Note,
 		},
 	})
 }
@@ -230,8 +249,8 @@ func (r *Repository) UpdateSteps(userID, companyID string, steps []SelectionStep
 		if stepID == "" {
 			return Company{}, invalidInput("step id is required")
 		}
-		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.Note == nil {
-			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or note is required", ErrInvalidInput)
+		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.DurationMinutes == nil && patch.Note == nil {
+			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or durationMinutes or note is required", ErrInvalidInput)
 		}
 
 		index, exists := indexByStepID[stepID]
@@ -260,6 +279,13 @@ func (r *Repository) UpdateSteps(userID, companyID string, steps []SelectionStep
 				return Company{}, err
 			}
 			step.ScheduledAt = scheduledAt
+		}
+		if patch.DurationMinutes != nil {
+			durationMinutes, err := normalizeDurationMinutes(*patch.DurationMinutes)
+			if err != nil {
+				return Company{}, err
+			}
+			step.DurationMinutes = durationMinutes
 		}
 		if patch.Note != nil {
 			step.Note = strings.TrimSpace(*patch.Note)
@@ -387,6 +413,37 @@ func normalizeCompanyStatusFilter(raw string) string {
 	return normalized
 }
 
+func normalizeInterestLevel(raw string) (string, error) {
+	candidate := strings.TrimSpace(raw)
+	if candidate == "" {
+		return DefaultInterestLevel, nil
+	}
+
+	aliases := map[string]string{
+		"S":  "高",
+		"A":  "高",
+		"B":  "中",
+		"C":  "低",
+		"高い": "高",
+		"中位": "中",
+		"低い": "低",
+	}
+	if normalized, ok := aliases[candidate]; ok {
+		candidate = normalized
+	}
+
+	allowed := map[string]struct{}{
+		DefaultInterestLevel: {},
+		"高":                 {},
+		"中":                 {},
+		"低":                 {},
+	}
+	if _, ok := allowed[candidate]; !ok {
+		return "", invalidInput("interestLevel is invalid")
+	}
+	return candidate, nil
+}
+
 func normalizeSelectionStepKind(raw string) (string, error) {
 	candidate := strings.TrimSpace(raw)
 	if candidate == "" {
@@ -465,6 +522,16 @@ func parseScheduledAt(raw string) (*time.Time, error) {
 	return nil, invalidInput("scheduledAt must be RFC3339, YYYY-MM-DD, or YYYY-MM-DDTHH:MM")
 }
 
+func normalizeDurationMinutes(raw int) (int, error) {
+	if raw < 0 {
+		return 0, invalidInput("durationMinutes must be greater than or equal to 0")
+	}
+	if raw > MaxDurationMinutes {
+		return 0, invalidInput("durationMinutes is too large")
+	}
+	return raw, nil
+}
+
 func buildSelectionSteps(inputs []SelectionStepInput) ([]SelectionStep, error) {
 	if len(inputs) == 0 {
 		return []SelectionStep{}, nil
@@ -494,6 +561,10 @@ func buildSelectionStep(input SelectionStepInput) (SelectionStep, error) {
 	if err != nil {
 		return SelectionStep{}, err
 	}
+	durationMinutes, err := normalizeDurationMinutes(input.DurationMinutes)
+	if err != nil {
+		return SelectionStep{}, err
+	}
 
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
@@ -501,12 +572,13 @@ func buildSelectionStep(input SelectionStepInput) (SelectionStep, error) {
 	}
 
 	return SelectionStep{
-		ID:          newEntityID(),
-		Kind:        kind,
-		Title:       title,
-		Status:      status,
-		ScheduledAt: scheduledAt,
-		Note:        strings.TrimSpace(input.Note),
+		ID:              newEntityID(),
+		Kind:            kind,
+		Title:           title,
+		Status:          status,
+		ScheduledAt:     scheduledAt,
+		DurationMinutes: durationMinutes,
+		Note:            strings.TrimSpace(input.Note),
 	}, nil
 }
 
