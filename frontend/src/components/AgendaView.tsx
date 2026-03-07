@@ -31,6 +31,8 @@ export function AgendaView({
   const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
   const [activeEvent, setActiveEvent] = useState<AgendaEvent | null>(null)
   const monthInputValue = useMemo(() => toMonthInputValue(timelineMonth), [timelineMonth])
+  const [isMonthEditorOpen, setIsMonthEditorOpen] = useState(false)
+  const [monthDraft, setMonthDraft] = useState(() => toMonthInputValue(timelineMonth))
 
   useEffect(() => {
     setFilterInput(calendarCompanyFilter)
@@ -43,14 +45,32 @@ export function AgendaView({
 
   function openMonthPicker() {
     const picker = monthPickerRef.current
-    if (!picker) return
-    if (typeof picker.showPicker === "function") {
-      picker.showPicker()
-      return
+    if (picker) {
+      try {
+        if (typeof picker.showPicker === "function") {
+          picker.showPicker()
+          return
+        }
+        picker.focus()
+        picker.click()
+        return
+      } catch (_error) {
+        // showPicker/click が使えない環境ではインライン入力へフォールバックする
+      }
     }
-    const manualInput = window.prompt("表示月を YYYY-MM 形式で入力してください。", monthInputValue)
-    if (manualInput) onSetMonth(manualInput)
+    setMonthDraft(monthInputValue)
+    setIsMonthEditorOpen(true)
   }
+
+  function onMonthDraftSubmit(event: FormEvent) {
+    event.preventDefault()
+    onSetMonth(monthDraft)
+    setIsMonthEditorOpen(false)
+  }
+
+  useEffect(() => {
+    setMonthDraft(monthInputValue)
+  }, [monthInputValue])
 
   return (
     <>
@@ -70,10 +90,28 @@ export function AgendaView({
             className="month-picker-hidden"
             type="month"
             value={monthInputValue}
-            onChange={(changeEvent) => onSetMonth(changeEvent.target.value)}
+            onChange={(changeEvent) => {
+              onSetMonth(changeEvent.target.value)
+              setIsMonthEditorOpen(false)
+            }}
             aria-label="表示月を変更"
           />
         </div>
+        {isMonthEditorOpen && (
+          <form className="row month-fallback-form" onSubmit={onMonthDraftSubmit}>
+            <input
+              className="month-fallback-input"
+              type="month"
+              value={monthDraft}
+              onChange={(event) => setMonthDraft(event.target.value)}
+              aria-label="表示月を YYYY-MM で入力"
+            />
+            <button type="submit">適用</button>
+            <button type="button" className="button-secondary" onClick={() => setIsMonthEditorOpen(false)}>
+              閉じる
+            </button>
+          </form>
+        )}
         <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
           <div className="row timeline-filter-primary">
             <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名で予定を絞り込み" />
