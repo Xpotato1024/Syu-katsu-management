@@ -1,4 +1,4 @@
-import { Fragment, type FormEvent, useMemo, useState } from "react"
+import { Fragment, type FormEvent, useEffect, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
@@ -49,6 +49,19 @@ type CompaniesViewProps = {
   onAddStepToCompany: (companyID: string) => void
 }
 
+type DeleteConfirmTarget =
+  | {
+      mode: "company"
+      companyID: string
+      companyName: string
+    }
+  | {
+      mode: "step"
+      companyID: string
+      stepID: string
+      stepName: string
+    }
+
 export function CompaniesView({
   companies,
   loading,
@@ -93,7 +106,46 @@ export function CompaniesView({
 }: CompaniesViewProps) {
   const [docModeByKey, setDocModeByKey] = useState<Record<string, "edit" | "view">>({})
   const [isFilterOptionsOpen, setIsFilterOptionsOpen] = useState(false)
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<DeleteConfirmTarget | null>(null)
   const markdownPlugins = useMemo(() => [remarkGfm], [])
+
+  useEffect(() => {
+    if (!deleteConfirmTarget) return
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key === "Escape") setDeleteConfirmTarget(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [deleteConfirmTarget])
+
+  useEffect(() => {
+    if (!deleteConfirmTarget) return
+    if (deleteConfirmTarget.mode === "company" && !companies.some((company) => company.id === deleteConfirmTarget.companyID)) {
+      setDeleteConfirmTarget(null)
+      return
+    }
+    if (
+      deleteConfirmTarget.mode === "step" &&
+      !companies.some((company) => (company.selectionSteps || []).some((step) => step.id === deleteConfirmTarget.stepID))
+    ) {
+      setDeleteConfirmTarget(null)
+    }
+  }, [companies, deleteConfirmTarget])
+
+  const isDeleteSubmitting = useMemo(() => {
+    if (!deleteConfirmTarget) return false
+    if (deleteConfirmTarget.mode === "company") return deletingCompanyID === deleteConfirmTarget.companyID
+    return deletingStepID === deleteConfirmTarget.stepID
+  }, [deleteConfirmTarget, deletingCompanyID, deletingStepID])
+
+  function onConfirmDelete() {
+    if (!deleteConfirmTarget) return
+    if (deleteConfirmTarget.mode === "company") {
+      onDeleteCompany(deleteConfirmTarget.companyID)
+      return
+    }
+    onDeleteStep(deleteConfirmTarget.companyID, deleteConfirmTarget.stepID)
+  }
 
   function docMode(companyID: string, kind: "research" | "es"): "edit" | "view" {
     return docModeByKey[`${companyID}:${kind}`] ?? "edit"
@@ -284,11 +336,7 @@ export function CompaniesView({
                   <button
                     type="button"
                     className="button-danger"
-                    onClick={() => {
-                      const shouldDelete = window.confirm(`「${company.name}」を削除します。元に戻せません。続行しますか？`)
-                      if (!shouldDelete) return
-                      onDeleteCompany(company.id)
-                    }}
+                    onClick={() => setDeleteConfirmTarget({ mode: "company", companyID: company.id, companyName: company.name })}
                     disabled={deletingCompanyID === company.id}
                   >
                     {deletingCompanyID === company.id ? "削除中..." : "企業削除"}
@@ -483,11 +531,14 @@ export function CompaniesView({
                             <button
                               type="button"
                               className="button-danger step-head-delete"
-                              onClick={() => {
-                                const shouldDelete = window.confirm(`「${stepLabel(step)}」を削除します。続行しますか？`)
-                                if (!shouldDelete) return
-                                onDeleteStep(company.id, step.id)
-                              }}
+                              onClick={() =>
+                                setDeleteConfirmTarget({
+                                  mode: "step",
+                                  companyID: company.id,
+                                  stepID: step.id,
+                                  stepName: stepLabel(step)
+                                })
+                              }
                               disabled={deletingStepID === step.id}
                             >
                               {deletingStepID === step.id ? "削除中..." : "削除"}
@@ -575,6 +626,47 @@ export function CompaniesView({
       </section>
 
       {!loading && companies.length === 0 && <p className="empty-state">該当する企業はありません。</p>}
+
+      {deleteConfirmTarget && (
+        <div className="event-modal-backdrop" role="presentation" onClick={() => setDeleteConfirmTarget(null)}>
+          <section
+            className="event-modal confirm-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="削除確認"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="event-modal-head">
+              <div className="event-modal-title-wrap">
+                <h3>削除の確認</h3>
+              </div>
+              <button type="button" className="event-modal-close" onClick={() => setDeleteConfirmTarget(null)} aria-label="閉じる">
+                ×
+              </button>
+            </header>
+
+            <p className="confirm-delete-message">
+              {deleteConfirmTarget.mode === "company"
+                ? "企業を削除すると関連する選考ステップも削除されます。元に戻せません。"
+                : "この選考ステップを削除します。元に戻せません。"}
+            </p>
+            <p className="confirm-delete-target">
+              {deleteConfirmTarget.mode === "company"
+                ? `対象企業: ${deleteConfirmTarget.companyName}`
+                : `対象ステップ: ${deleteConfirmTarget.stepName}`}
+            </p>
+
+            <div className="event-modal-actions confirm-delete-actions">
+              <button type="button" className="button-secondary" onClick={() => setDeleteConfirmTarget(null)} disabled={isDeleteSubmitting}>
+                キャンセル
+              </button>
+              <button type="button" className="button-danger" onClick={onConfirmDelete} disabled={isDeleteSubmitting}>
+                {isDeleteSubmitting ? "削除中..." : "削除する"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   )
 }
