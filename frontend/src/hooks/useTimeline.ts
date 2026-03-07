@@ -78,6 +78,7 @@ export function useTimeline({ companies }: UseTimelineArgs) {
           stepLabel: stepLabel(step),
           stepStatus: step.status,
           scheduledAt: step.scheduledAt,
+          durationMinutes: step.durationMinutes || 0,
           note: step.note || ""
         })
       }

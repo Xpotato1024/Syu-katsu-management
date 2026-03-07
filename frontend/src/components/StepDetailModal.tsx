@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import type { AgendaEvent } from "../types"
-import { formatDayLabel, formatTimeLabel } from "../utils/date"
+import { formatDayLabel, formatDurationLabel, formatTimeLabel } from "../utils/date"
 import { stepKindTone } from "../utils/selection"
 
 type StepDetailModalProps = {
@@ -30,6 +30,7 @@ export function StepDetailModal({ event, onClose }: StepDetailModalProps) {
   const note = (event.note || "").trim()
   const urls = extractURLs(note)
   const timeLabel = formatTimeLabel(event.scheduledAt)
+  const durationLabel = formatDurationLabel(event.durationMinutes)
 
   return (
     <div className="event-modal-backdrop" onClick={onClose}>
@@ -57,6 +58,8 @@ export function StepDetailModal({ event, onClose }: StepDetailModalProps) {
           <dd>{formatDayLabel(event.dayKey)}</dd>
           <dt>時刻</dt>
           <dd>{timeLabel || "未設定"}</dd>
+          <dt>所要時間</dt>
+          <dd>{durationLabel || "未設定"}</dd>
           <dt>ステータス</dt>
           <dd>{event.stepStatus}</dd>
           <dt>企業状況</dt>

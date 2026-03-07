@@ -7,6 +7,7 @@ type Company struct {
 	Name            string          `json:"name"`
 	MypageLink      string          `json:"mypageLink"`
 	MypageID        string          `json:"mypageId"`
+	InterestLevel   string          `json:"interestLevel"`
 	SelectionFlow   string          `json:"selectionFlow"`
 	SelectionStatus string          `json:"selectionStatus"`
 	SelectionSteps  []SelectionStep `json:"selectionSteps"`
@@ -17,18 +18,20 @@ type Company struct {
 }
 
 type SelectionStep struct {
-	ID          string     `json:"id"`
-	Kind        string     `json:"kind"`
-	Title       string     `json:"title"`
-	Status      string     `json:"status"`
-	ScheduledAt *time.Time `json:"scheduledAt,omitempty"`
-	Note        string     `json:"note"`
+	ID              string     `json:"id"`
+	Kind            string     `json:"kind"`
+	Title           string     `json:"title"`
+	Status          string     `json:"status"`
+	ScheduledAt     *time.Time `json:"scheduledAt,omitempty"`
+	DurationMinutes int        `json:"durationMinutes"`
+	Note            string     `json:"note"`
 }
 
 type UpsertInput struct {
 	Name            string               `json:"name" binding:"required"`
 	MypageLink      string               `json:"mypageLink"`
 	MypageID        string               `json:"mypageId"`
+	InterestLevel   string               `json:"interestLevel"`
 	SelectionFlow   string               `json:"selectionFlow"`
 	SelectionStatus string               `json:"selectionStatus"`
 	SelectionSteps  []SelectionStepInput `json:"selectionSteps"`
@@ -37,26 +40,29 @@ type UpsertInput struct {
 }
 
 type SelectionStepInput struct {
-	Kind        string `json:"kind"`
-	Title       string `json:"title"`
-	Status      string `json:"status"`
-	ScheduledAt string `json:"scheduledAt"`
-	Note        string `json:"note"`
+	Kind            string `json:"kind"`
+	Title           string `json:"title"`
+	Status          string `json:"status"`
+	ScheduledAt     string `json:"scheduledAt"`
+	DurationMinutes int    `json:"durationMinutes"`
+	Note            string `json:"note"`
 }
 
 type SelectionStepUpdateInput struct {
-	Title       *string `json:"title"`
-	Status      *string `json:"status"`
-	ScheduledAt *string `json:"scheduledAt"`
-	Note        *string `json:"note"`
+	Title           *string `json:"title"`
+	Status          *string `json:"status"`
+	ScheduledAt     *string `json:"scheduledAt"`
+	DurationMinutes *int    `json:"durationMinutes"`
+	Note            *string `json:"note"`
 }
 
 type SelectionStepBulkUpdateItem struct {
-	ID          string  `json:"id"`
-	Title       *string `json:"title"`
-	Status      *string `json:"status"`
-	ScheduledAt *string `json:"scheduledAt"`
-	Note        *string `json:"note"`
+	ID              string  `json:"id"`
+	Title           *string `json:"title"`
+	Status          *string `json:"status"`
+	ScheduledAt     *string `json:"scheduledAt"`
+	DurationMinutes *int    `json:"durationMinutes"`
+	Note            *string `json:"note"`
 }
 
 type SelectionStepBulkUpdateInput struct {

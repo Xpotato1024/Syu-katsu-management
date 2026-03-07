@@ -1,0 +1,5 @@
+ALTER TABLE companies
+ADD COLUMN IF NOT EXISTS interest_level TEXT NOT NULL DEFAULT '未設定';
+
+ALTER TABLE selection_steps
+ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 0;

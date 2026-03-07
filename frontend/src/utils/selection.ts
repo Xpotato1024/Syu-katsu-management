@@ -2,7 +2,7 @@ import { completedStepStatuses, pendingStepStatuses, stoppedStepStatuses } from 
 import type { SelectionStep, StepDraft } from "../types"
 
 export function newStepDraft(kind = "エントリー"): StepDraft {
-  return { kind, title: "", status: "未着手", scheduledAt: "", note: "" }
+  return { kind, title: "", status: "未着手", scheduledAt: "", durationMinutes: "", note: "" }
 }
 
 export function stepLabel(step: SelectionStep): string {

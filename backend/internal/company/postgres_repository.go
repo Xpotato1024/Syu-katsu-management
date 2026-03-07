@@ -27,6 +27,7 @@ func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
 			name TEXT NOT NULL,
 			mypage_link TEXT NOT NULL DEFAULT '',
 			mypage_id TEXT NOT NULL DEFAULT '',
+			interest_level TEXT NOT NULL DEFAULT '未設定',
 			selection_flow TEXT NOT NULL DEFAULT '',
 			selection_status TEXT NOT NULL DEFAULT '',
 			es_content TEXT NOT NULL DEFAULT '',
@@ -42,11 +43,14 @@ func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
 			title TEXT NOT NULL,
 			status TEXT NOT NULL,
 			scheduled_at TIMESTAMPTZ NULL,
+			duration_minutes INTEGER NOT NULL DEFAULT 0,
 			note TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_selection_steps_company_created ON selection_steps (company_id, created_at ASC);`,
+		`ALTER TABLE companies ADD COLUMN IF NOT EXISTS interest_level TEXT NOT NULL DEFAULT '未設定';`,
+		`ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 0;`,
 		`ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';`,
 	}
 
@@ -62,7 +66,7 @@ func (r *PostgresRepository) List(userID string, filter ListFilter) []Company {
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
-	query := `SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+	query := `SELECT id, name, mypage_link, mypage_id, interest_level, selection_flow, selection_status, es_content, research_content, created_at, updated_at
 		FROM companies WHERE user_id = $1`
 	args := []any{userID}
 	argIndex := 2
@@ -97,6 +101,7 @@ func (r *PostgresRepository) List(userID string, filter ListFilter) []Company {
 			&company.Name,
 			&company.MypageLink,
 			&company.MypageID,
+			&company.InterestLevel,
 			&company.SelectionFlow,
 			&company.SelectionStatus,
 			&company.ESContent,
@@ -123,7 +128,7 @@ func (r *PostgresRepository) GetByID(userID, id string) (Company, error) {
 	var company Company
 	err := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+		`SELECT id, name, mypage_link, mypage_id, interest_level, selection_flow, selection_status, es_content, research_content, created_at, updated_at
 		FROM companies WHERE user_id = $1 AND id = $2`,
 		userID,
 		id,
@@ -132,6 +137,7 @@ func (r *PostgresRepository) GetByID(userID, id string) (Company, error) {
 		&company.Name,
 		&company.MypageLink,
 		&company.MypageID,
+		&company.InterestLevel,
 		&company.SelectionFlow,
 		&company.SelectionStatus,
 		&company.ESContent,
@@ -163,6 +169,10 @@ func (r *PostgresRepository) Create(userID string, input UpsertInput) (Company, 
 	if err != nil {
 		return Company{}, err
 	}
+	interestLevel, err := normalizeInterestLevel(input.InterestLevel)
+	if err != nil {
+		return Company{}, err
+	}
 	steps, err := buildSelectionSteps(input.SelectionSteps)
 	if err != nil {
 		return Company{}, err
@@ -179,6 +189,7 @@ func (r *PostgresRepository) Create(userID string, input UpsertInput) (Company, 
 		Name:            strings.TrimSpace(input.Name),
 		MypageLink:      strings.TrimSpace(input.MypageLink),
 		MypageID:        strings.TrimSpace(input.MypageID),
+		InterestLevel:   interestLevel,
 		SelectionFlow:   selectionFlow,
 		SelectionStatus: selectionStatus,
 		SelectionSteps:  steps,
@@ -199,13 +210,14 @@ func (r *PostgresRepository) Create(userID string, input UpsertInput) (Company, 
 
 	if _, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO companies (id, user_id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		`INSERT INTO companies (id, user_id, name, mypage_link, mypage_id, interest_level, selection_flow, selection_status, es_content, research_content, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		company.ID,
 		userID,
 		company.Name,
 		company.MypageLink,
 		company.MypageID,
+		company.InterestLevel,
 		company.SelectionFlow,
 		company.SelectionStatus,
 		company.ESContent,
@@ -255,9 +267,20 @@ func (r *PostgresRepository) Update(userID, id string, input UpsertInput) (Compa
 		status = DefaultCompanyStatus
 	}
 
+	interestLevel := existing.InterestLevel
+	if strings.TrimSpace(input.InterestLevel) != "" {
+		interestLevel, err = normalizeInterestLevel(input.InterestLevel)
+		if err != nil {
+			return Company{}, err
+		}
+	} else if interestLevel == "" {
+		interestLevel = DefaultInterestLevel
+	}
+
 	existing.Name = strings.TrimSpace(input.Name)
 	existing.MypageLink = strings.TrimSpace(input.MypageLink)
 	existing.MypageID = strings.TrimSpace(input.MypageID)
+	existing.InterestLevel = interestLevel
 	existing.SelectionStatus = status
 	existing.ESContent = input.ESContent
 	existing.ResearchContent = input.ResearchContent
@@ -284,11 +307,12 @@ func (r *PostgresRepository) Update(userID, id string, input UpsertInput) (Compa
 
 	if _, err := tx.ExecContext(
 		ctx,
-		`UPDATE companies SET name=$1, mypage_link=$2, mypage_id=$3, selection_flow=$4, selection_status=$5, es_content=$6, research_content=$7, updated_at=$8
-		WHERE user_id = $9 AND id = $10`,
+		`UPDATE companies SET name=$1, mypage_link=$2, mypage_id=$3, interest_level=$4, selection_flow=$5, selection_status=$6, es_content=$7, research_content=$8, updated_at=$9
+		WHERE user_id = $10 AND id = $11`,
 		existing.Name,
 		existing.MypageLink,
 		existing.MypageID,
+		existing.InterestLevel,
 		existing.SelectionFlow,
 		existing.SelectionStatus,
 		existing.ESContent,
@@ -341,14 +365,15 @@ func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionSt
 
 	if _, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, note, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, duration_minutes, note, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		step.ID,
 		company.ID,
 		step.Kind,
 		step.Title,
 		step.Status,
 		step.ScheduledAt,
+		step.DurationMinutes,
 		step.Note,
 		time.Now().UTC(),
 		time.Now().UTC(),
@@ -384,11 +409,12 @@ func (r *PostgresRepository) AddStep(userID, companyID string, input SelectionSt
 func (r *PostgresRepository) UpdateStep(userID, companyID, stepID string, input SelectionStepUpdateInput) (Company, error) {
 	return r.UpdateSteps(userID, companyID, []SelectionStepBulkUpdateItem{
 		{
-			ID:          stepID,
-			Title:       input.Title,
-			Status:      input.Status,
-			ScheduledAt: input.ScheduledAt,
-			Note:        input.Note,
+			ID:              stepID,
+			Title:           input.Title,
+			Status:          input.Status,
+			ScheduledAt:     input.ScheduledAt,
+			DurationMinutes: input.DurationMinutes,
+			Note:            input.Note,
 		},
 	})
 }
@@ -429,8 +455,8 @@ func (r *PostgresRepository) UpdateSteps(userID, companyID string, steps []Selec
 		if stepID == "" {
 			return Company{}, invalidInput("step id is required")
 		}
-		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.Note == nil {
-			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or note is required", ErrInvalidInput)
+		if patch.Title == nil && patch.Status == nil && patch.ScheduledAt == nil && patch.DurationMinutes == nil && patch.Note == nil {
+			return Company{}, fmt.Errorf("%w: title or status or scheduledAt or durationMinutes or note is required", ErrInvalidInput)
 		}
 
 		current, exists := stepByID[stepID]
@@ -459,16 +485,24 @@ func (r *PostgresRepository) UpdateSteps(userID, companyID string, steps []Selec
 			}
 			current.ScheduledAt = scheduledAt
 		}
+		if patch.DurationMinutes != nil {
+			durationMinutes, err := normalizeDurationMinutes(*patch.DurationMinutes)
+			if err != nil {
+				return Company{}, err
+			}
+			current.DurationMinutes = durationMinutes
+		}
 		if patch.Note != nil {
 			current.Note = strings.TrimSpace(*patch.Note)
 		}
 
 		if _, err := tx.ExecContext(
 			ctx,
-			`UPDATE selection_steps SET title=$1, status=$2, scheduled_at=$3, note=$4, updated_at=$5 WHERE id = $6 AND company_id = $7`,
+			`UPDATE selection_steps SET title=$1, status=$2, scheduled_at=$3, duration_minutes=$4, note=$5, updated_at=$6 WHERE id = $7 AND company_id = $8`,
 			current.Title,
 			current.Status,
 			current.ScheduledAt,
+			current.DurationMinutes,
 			current.Note,
 			time.Now().UTC(),
 			current.ID,
@@ -604,7 +638,7 @@ func listStepsTx(ctx context.Context, q querier, companyID string) ([]SelectionS
 func listStepsWithQuerier(ctx context.Context, q querier, companyID string) ([]SelectionStep, error) {
 	rows, err := q.QueryContext(
 		ctx,
-		`SELECT id, kind, title, status, scheduled_at, note FROM selection_steps WHERE company_id=$1 ORDER BY created_at ASC`,
+		`SELECT id, kind, title, status, scheduled_at, duration_minutes, note FROM selection_steps WHERE company_id=$1 ORDER BY created_at ASC`,
 		companyID,
 	)
 	if err != nil {
@@ -616,7 +650,7 @@ func listStepsWithQuerier(ctx context.Context, q querier, companyID string) ([]S
 	for rows.Next() {
 		var step SelectionStep
 		var scheduledAt sql.NullTime
-		if err := rows.Scan(&step.ID, &step.Kind, &step.Title, &step.Status, &scheduledAt, &step.Note); err != nil {
+		if err := rows.Scan(&step.ID, &step.Kind, &step.Title, &step.Status, &scheduledAt, &step.DurationMinutes, &step.Note); err != nil {
 			return nil, err
 		}
 		if scheduledAt.Valid {
@@ -632,7 +666,7 @@ func getCompanyForUpdate(ctx context.Context, q querier, userID, companyID strin
 	var company Company
 	err := q.QueryRowContext(
 		ctx,
-		`SELECT id, name, mypage_link, mypage_id, selection_flow, selection_status, es_content, research_content, created_at, updated_at
+		`SELECT id, name, mypage_link, mypage_id, interest_level, selection_flow, selection_status, es_content, research_content, created_at, updated_at
 		FROM companies WHERE user_id = $1 AND id = $2 FOR UPDATE`,
 		userID,
 		companyID,
@@ -641,6 +675,7 @@ func getCompanyForUpdate(ctx context.Context, q querier, userID, companyID strin
 		&company.Name,
 		&company.MypageLink,
 		&company.MypageID,
+		&company.InterestLevel,
 		&company.SelectionFlow,
 		&company.SelectionStatus,
 		&company.ESContent,
@@ -661,14 +696,15 @@ func insertSteps(ctx context.Context, tx *sql.Tx, companyID string, steps []Sele
 	for _, step := range steps {
 		if _, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, note, created_at, updated_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			`INSERT INTO selection_steps (id, company_id, kind, title, status, scheduled_at, duration_minutes, note, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 			step.ID,
 			companyID,
 			step.Kind,
 			step.Title,
 			step.Status,
 			step.ScheduledAt,
+			step.DurationMinutes,
 			step.Note,
 			time.Now().UTC(),
 			time.Now().UTC(),

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
-import { companyStatusOptions, stepStatusOptions } from "../constants"
+import { companyInterestOptions, companyStatusOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
-import { toDateTimeInputValue, toScheduledAtPayload } from "../utils/date"
+import { toDateTimeInputValue, toDurationInputValue, toDurationMinutesPayload, toScheduledAtPayload } from "../utils/date"
 import { newStepDraft } from "../utils/selection"
 import type { ToastTone } from "./useToast"
 
@@ -20,6 +20,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
   const [companies, setCompanies] = useState<Company[]>([])
   const [nameInput, setNameInput] = useState("")
   const [newCompanyStatus, setNewCompanyStatus] = useState<string>(companyStatusOptions[0])
+  const [newCompanyInterest, setNewCompanyInterest] = useState<string>(companyInterestOptions[0])
   const [newSteps, setNewSteps] = useState<StepDraft[]>([newStepDraft()])
   const [stepDraftByCompany, setStepDraftByCompany] = useState<Record<string, StepDraft>>({})
   const [stepEdits, setStepEdits] = useState<Record<string, StepEdit>>({})
@@ -76,6 +77,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
                 title: step.title || "",
                 status: step.status || stepStatusOptions[0],
                 scheduledAt: toDateTimeInputValue(step.scheduledAt),
+                durationMinutes: toDurationInputValue(step.durationMinutes),
                 note: step.note || ""
               }
             }
@@ -89,13 +91,15 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
               next[company.id] = {
                 mypageLink: company.mypageLink || "",
                 mypageId: company.mypageId || "",
+                interestLevel: company.interestLevel || companyInterestOptions[0],
                 selectionStatus: company.selectionStatus || companyStatusOptions[0],
                 researchContent: company.researchContent || "",
                 esContent: company.esContent || ""
               }
-            } else if (!next[company.id].selectionStatus) {
+            } else if (!next[company.id].selectionStatus || !next[company.id].interestLevel) {
               next[company.id] = {
                 ...next[company.id],
+                interestLevel: company.interestLevel || companyInterestOptions[0],
                 selectionStatus: company.selectionStatus || companyStatusOptions[0]
               }
             }
@@ -133,12 +137,14 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           name: nameInput,
           mypageLink: "",
           mypageId: "",
+          interestLevel: newCompanyInterest,
           selectionStatus: newCompanyStatus,
           selectionSteps: newSteps.map((step) => ({
             kind: step.kind,
             title: step.title,
             status: step.status,
             scheduledAt: toScheduledAtPayload(step.scheduledAt),
+            durationMinutes: toDurationMinutesPayload(step.durationMinutes),
             note: step.note
           })),
           esContent: "",
@@ -163,10 +169,11 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
     setNameInput("")
     setNewCompanyStatus(companyStatusOptions[0])
+    setNewCompanyInterest(companyInterestOptions[0])
     setNewSteps([newStepDraft()])
     await loadCompanies(filterName, filterStatuses, { silent: true })
     onToast?.("企業を追加しました。", "success")
-  }, [apiBase, filterName, filterStatuses, loadCompanies, nameInput, newCompanyStatus, newSteps, onToast])
+  }, [apiBase, filterName, filterStatuses, loadCompanies, nameInput, newCompanyInterest, newCompanyStatus, newSteps, onToast])
 
   const applyFilter = useCallback(async () => {
     const ok = await loadCompanies(filterName, filterStatuses, { silent: true })
@@ -214,6 +221,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           title: step.title || "",
           status: step.status || stepStatusOptions[0],
           scheduledAt: toDateTimeInputValue(step.scheduledAt),
+          durationMinutes: toDurationInputValue(step.durationMinutes),
           note: step.note || ""
         }
       }
@@ -234,6 +242,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             title: draft.title,
             status: draft.status,
             scheduledAt: toScheduledAtPayload(draft.scheduledAt),
+            durationMinutes: toDurationMinutesPayload(draft.durationMinutes),
             note: draft.note
           })
         })
@@ -266,6 +275,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           title: step.title || "",
           status: step.status || stepStatusOptions[0],
           scheduledAt: toDateTimeInputValue(step.scheduledAt),
+          durationMinutes: toDurationInputValue(step.durationMinutes),
           note: step.note || ""
         }
         return {
@@ -273,6 +283,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
           title: edit.title,
           status: edit.status,
           scheduledAt: toScheduledAtPayload(edit.scheduledAt),
+          durationMinutes: toDurationMinutesPayload(edit.durationMinutes),
           note: edit.note
         }
       })
@@ -315,6 +326,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
       const current = prev[companyID] ?? {
         mypageLink: "",
         mypageId: "",
+        interestLevel: companyInterestOptions[0],
         selectionStatus: companyStatusOptions[0],
         researchContent: "",
         esContent: ""
@@ -376,6 +388,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             name: company.name,
             mypageLink: edit.mypageLink,
             mypageId: edit.mypageId,
+            interestLevel: edit.interestLevel || company.interestLevel || companyInterestOptions[0],
             selectionFlow: company.selectionFlow || "",
             selectionStatus: edit.selectionStatus || company.selectionStatus,
             selectionSteps: (company.selectionSteps || []).map((step) => ({
@@ -383,6 +396,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
               title: step.title,
               status: step.status,
               scheduledAt: step.scheduledAt || "",
+              durationMinutes: step.durationMinutes || 0,
               note: step.note || ""
             })),
             esContent: company.esContent || "",
@@ -427,6 +441,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             name: company.name,
             mypageLink: company.mypageLink || "",
             mypageId: company.mypageId || "",
+            interestLevel: company.interestLevel || companyInterestOptions[0],
             selectionFlow: company.selectionFlow || "",
             selectionStatus: company.selectionStatus || companyStatusOptions[0],
             selectionSteps: (company.selectionSteps || []).map((step) => ({
@@ -434,6 +449,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
               title: step.title,
               status: step.status,
               scheduledAt: step.scheduledAt || "",
+              durationMinutes: step.durationMinutes || 0,
               note: step.note || ""
             })),
             esContent: edit.esContent,
@@ -543,7 +559,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
   const updateStepEdit = useCallback((stepID: string, patch: Partial<StepEdit>) => {
     setStepEdits((prev) => {
-      const current = prev[stepID] ?? { title: "", status: stepStatusOptions[0], scheduledAt: "", note: "" }
+      const current = prev[stepID] ?? { title: "", status: stepStatusOptions[0], scheduledAt: "", durationMinutes: "", note: "" }
       return { ...prev, [stepID]: { ...current, ...patch } }
     })
   }, [])
@@ -571,6 +587,8 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     setNameInput,
     newCompanyStatus,
     setNewCompanyStatus,
+    newCompanyInterest,
+    setNewCompanyInterest,
     newSteps,
     stepDraftByCompany,
     stepEdits,

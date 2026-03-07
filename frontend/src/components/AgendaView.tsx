@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import type { AgendaEvent, AgendaGroup } from "../types"
-import { formatDayLabel, formatTimeLabel, toMonthInputValue } from "../utils/date"
+import { formatDayLabel, formatDurationLabel, formatRemainingLabel, formatTimeLabel, toMonthInputValue } from "../utils/date"
 import { stepKindTone } from "../utils/selection"
 import { StepDetailModal } from "./StepDetailModal"
 
@@ -148,28 +148,34 @@ export function AgendaView({
                 <span>{group.events.length}件</span>
               </header>
               <div className="agenda-list">
-                {group.events.map((event) => (
-                  <button
-                    key={`${event.companyID}-${event.stepID}`}
-                    type="button"
-                    className="agenda-item agenda-item-button"
-                    onClick={() => setActiveEvent(event)}
-                  >
-                    <div className="agenda-main">
-                      <span className="agenda-company">{event.companyName}</span>
-                      <span className="agenda-step-line">
-                        <span className={`step-kind-tag ${stepKindTone(event.stepKind)}`}>{event.stepKind}</span>
-                        <span className="agenda-step">{event.stepLabel}</span>
-                        {event.note?.trim() && <span className="agenda-note-indicator">備考あり</span>}
-                      </span>
-                    </div>
-                    <div className="agenda-side">
-                      <span className="agenda-company-status">{event.companyStatus || "未設定"}</span>
-                      <span className="agenda-step-status">{event.stepStatus}</span>
-                      {event.scheduledAt && <span className="agenda-step-time">{formatTimeLabel(event.scheduledAt)}</span>}
-                    </div>
-                  </button>
-                ))}
+                {group.events.map((event) => {
+                  const remainingLabel = formatRemainingLabel(event.scheduledAt)
+                  const durationLabel = formatDurationLabel(event.durationMinutes)
+                  return (
+                    <button
+                      key={`${event.companyID}-${event.stepID}`}
+                      type="button"
+                      className="agenda-item agenda-item-button"
+                      onClick={() => setActiveEvent(event)}
+                    >
+                      <div className="agenda-main">
+                        <span className="agenda-company">{event.companyName}</span>
+                        <span className="agenda-step-line">
+                          <span className={`step-kind-tag ${stepKindTone(event.stepKind)}`}>{event.stepKind}</span>
+                          <span className="agenda-step">{event.stepLabel}</span>
+                          {event.note?.trim() && <span className="agenda-note-indicator">備考あり</span>}
+                          {remainingLabel && <span className="agenda-remaining-label">{remainingLabel}</span>}
+                        </span>
+                      </div>
+                      <div className="agenda-side">
+                        <span className="agenda-company-status">{event.companyStatus || "未設定"}</span>
+                        <span className="agenda-step-status">{event.stepStatus}</span>
+                        {event.scheduledAt && <span className="agenda-step-time">{formatTimeLabel(event.scheduledAt)}</span>}
+                        {durationLabel && <span className="agenda-step-time">{durationLabel}</span>}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </article>
           ))}

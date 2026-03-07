@@ -1,10 +1,11 @@
 import { Fragment, type FormEvent, useEffect, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
+import { companyInterestOptions, companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { newStepDraft, resolveCurrentStepIndex, stepLabel, stepVisualState } from "../utils/selection"
 import { toDateTimeInputValue } from "../utils/date"
+import { DateTimeField } from "./DateTimeField"
 
 type CompaniesViewProps = {
   companies: Company[]
@@ -18,6 +19,7 @@ type CompaniesViewProps = {
   filterStatuses: string[]
   nameInput: string
   newCompanyStatus: string
+  newCompanyInterest: string
   newSteps: StepDraft[]
   stepDraftByCompany: Record<string, StepDraft>
   stepEdits: Record<string, StepEdit>
@@ -30,6 +32,7 @@ type CompaniesViewProps = {
   onClearFilter: () => void
   onNameInputChange: (value: string) => void
   onNewCompanyStatusChange: (value: string) => void
+  onNewCompanyInterestChange: (value: string) => void
   onUpdateNewStep: (index: number, patch: Partial<StepDraft>) => void
   onRemoveNewStep: (index: number) => void
   onAddNewStep: () => void
@@ -74,6 +77,7 @@ export function CompaniesView({
   filterStatuses,
   nameInput,
   newCompanyStatus,
+  newCompanyInterest,
   newSteps,
   stepDraftByCompany,
   stepEdits,
@@ -86,6 +90,7 @@ export function CompaniesView({
   onClearFilter,
   onNameInputChange,
   onNewCompanyStatusChange,
+  onNewCompanyInterestChange,
   onUpdateNewStep,
   onRemoveNewStep,
   onAddNewStep,
@@ -220,6 +225,13 @@ export function CompaniesView({
                 </option>
               ))}
             </select>
+            <select value={newCompanyInterest} onChange={(e) => onNewCompanyInterestChange(e.target.value)}>
+              {companyInterestOptions.map((level) => (
+                <option key={level} value={level}>
+                  志望度: {level}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="step-builder">
@@ -261,12 +273,22 @@ export function CompaniesView({
                         </option>
                       ))}
                     </select>
-                    <input
+                    <DateTimeField
                       className="step-input-datetime"
-                      type="datetime-local"
+                      step={300}
                       value={step.scheduledAt}
-                      onChange={(e) => onUpdateNewStep(index, { scheduledAt: e.target.value })}
+                      onChange={(nextValue) => onUpdateNewStep(index, { scheduledAt: nextValue })}
                       aria-label="日時"
+                    />
+                    <input
+                      className="step-input-duration"
+                      type="number"
+                      min="0"
+                      step="5"
+                      inputMode="numeric"
+                      value={step.durationMinutes}
+                      onChange={(e) => onUpdateNewStep(index, { durationMinutes: e.target.value })}
+                      placeholder="所要分"
                     />
                     <input
                       className="step-input-note"
@@ -307,6 +329,7 @@ export function CompaniesView({
           const companyEdit = companyEdits[company.id] ?? {
             mypageLink: company.mypageLink || "",
             mypageId: company.mypageId || "",
+            interestLevel: company.interestLevel || companyInterestOptions[0],
             selectionStatus: company.selectionStatus || companyStatusOptions[0],
             researchContent: company.researchContent || "",
             esContent: company.esContent || ""
@@ -378,6 +401,16 @@ export function CompaniesView({
                   <section className="doc-editor">
                     <h4>企業情報</h4>
                     <div className="row">
+                      <select
+                        value={companyEdit.interestLevel}
+                        onChange={(e) => onUpdateCompanyEdit(company.id, { interestLevel: e.target.value })}
+                      >
+                        {companyInterestOptions.map((level) => (
+                          <option key={level} value={level}>
+                            志望度: {level}
+                          </option>
+                        ))}
+                      </select>
                       <select
                         value={companyEdit.selectionStatus}
                         onChange={(e) => onUpdateCompanyEdit(company.id, { selectionStatus: e.target.value })}
@@ -517,6 +550,7 @@ export function CompaniesView({
                         title: step.title || "",
                         status: step.status || stepStatusOptions[0],
                         scheduledAt: toDateTimeInputValue(step.scheduledAt),
+                        durationMinutes: step.durationMinutes > 0 ? String(step.durationMinutes) : "",
                         note: step.note || ""
                       }
                       const liveLabel = edit.title.trim() || step.kind
@@ -558,11 +592,22 @@ export function CompaniesView({
                                 </option>
                               ))}
                             </select>
-                            <input
+                            <DateTimeField
                               className="step-edit-datetime"
-                              type="datetime-local"
+                              step={300}
                               value={edit.scheduledAt}
-                              onChange={(e) => onUpdateStepEdit(step.id, { scheduledAt: e.target.value })}
+                              onChange={(nextValue) => onUpdateStepEdit(step.id, { scheduledAt: nextValue })}
+                              ariaLabel="選考ステップ日時"
+                            />
+                            <input
+                              className="step-edit-duration"
+                              type="number"
+                              min="0"
+                              step="5"
+                              inputMode="numeric"
+                              value={edit.durationMinutes}
+                              onChange={(e) => onUpdateStepEdit(step.id, { durationMinutes: e.target.value })}
+                              placeholder="所要分"
                             />
                             <input
                               className="step-edit-note"
@@ -597,10 +642,22 @@ export function CompaniesView({
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="datetime-local"
+                      <DateTimeField
+                        className="step-inline-datetime"
+                        step={300}
                         value={inlineDraft.scheduledAt}
-                        onChange={(e) => onUpdateInlineDraft(company.id, { scheduledAt: e.target.value })}
+                        onChange={(nextValue) => onUpdateInlineDraft(company.id, { scheduledAt: nextValue })}
+                        ariaLabel="追加ステップ日時"
+                      />
+                      <input
+                        className="step-inline-duration"
+                        type="number"
+                        min="0"
+                        step="5"
+                        inputMode="numeric"
+                        value={inlineDraft.durationMinutes}
+                        onChange={(e) => onUpdateInlineDraft(company.id, { durationMinutes: e.target.value })}
+                        placeholder="所要分"
                       />
                       <input
                         value={inlineDraft.note}

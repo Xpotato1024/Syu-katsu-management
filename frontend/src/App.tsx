@@ -94,6 +94,7 @@ export function App() {
           filterStatuses={companies.filterStatuses}
           nameInput={companies.nameInput}
           newCompanyStatus={companies.newCompanyStatus}
+          newCompanyInterest={companies.newCompanyInterest}
           newSteps={companies.newSteps}
           stepDraftByCompany={companies.stepDraftByCompany}
           stepEdits={companies.stepEdits}
@@ -106,6 +107,7 @@ export function App() {
           onClearFilter={() => void companies.clearFilter()}
           onNameInputChange={companies.setNameInput}
           onNewCompanyStatusChange={companies.setNewCompanyStatus}
+          onNewCompanyInterestChange={companies.setNewCompanyInterest}
           onUpdateNewStep={companies.updateNewStep}
           onRemoveNewStep={companies.removeNewStep}
           onAddNewStep={companies.appendNewStep}
