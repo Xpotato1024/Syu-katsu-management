@@ -11,7 +11,6 @@ type TimelineViewProps = {
   onSetMonth: (value: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
-  onResetMonth: () => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -52,7 +51,6 @@ export function TimelineView({
   onSetMonth,
   onPrevMonth,
   onNextMonth,
-  onResetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -204,7 +202,7 @@ export function TimelineView({
       <section className="panel timeline-toolbar">
         <h2>企業別カレンダー</h2>
         <div className="row timeline-row-month">
-          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} onResetMonth={onResetMonth} />
+          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
         </div>
         <div className="row timeline-range-switch timeline-row-range">
           <label className="timeline-mode-select">

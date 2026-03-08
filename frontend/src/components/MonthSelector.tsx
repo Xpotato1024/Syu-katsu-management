@@ -6,24 +6,22 @@ type MonthSelectorProps = {
   onSetMonth: (value: string) => void
   onPrevMonth?: () => void
   onNextMonth?: () => void
-  onResetMonth?: () => void
 }
 
-export function MonthSelector({ value, onSetMonth, onPrevMonth, onNextMonth, onResetMonth }: MonthSelectorProps) {
+export function MonthSelector({ value, onSetMonth, onPrevMonth, onNextMonth }: MonthSelectorProps) {
   const monthValue = useMemo(() => toMonthInputValue(value), [value])
   const { year, month } = useMemo(() => splitMonthInputValue(monthValue), [monthValue])
   const yearOptions = useMemo(() => buildYearOptions(year, 2, 5, value), [value, year])
   const monthOptions = useMemo(() => buildMonthOptions(), [])
 
   return (
-    <div className="month-selector-toolbar">
+    <div className="month-selector-grid">
       {onPrevMonth && (
-        <button type="button" className="button-secondary month-selector-nav" onClick={onPrevMonth}>
+        <button type="button" className="button-secondary month-selector-nav month-selector-prev" onClick={onPrevMonth}>
           前月
         </button>
       )}
-      <label className="month-selector-field">
-        <span>年</span>
+      <label className="month-selector-field month-selector-year">
         <select value={year} onChange={(event) => onSetMonth(`${event.target.value}-${month || "01"}`)} aria-label="表示年を変更">
           {yearOptions.map((option) => (
             <option key={option} value={option}>
@@ -32,8 +30,7 @@ export function MonthSelector({ value, onSetMonth, onPrevMonth, onNextMonth, onR
           ))}
         </select>
       </label>
-      <label className="month-selector-field">
-        <span>月</span>
+      <label className="month-selector-field month-selector-month">
         <select value={month} onChange={(event) => onSetMonth(`${year || String(value.getFullYear())}-${event.target.value}`)} aria-label="表示月を変更">
           {monthOptions.map((option) => (
             <option key={option} value={option}>
@@ -43,13 +40,8 @@ export function MonthSelector({ value, onSetMonth, onPrevMonth, onNextMonth, onR
         </select>
       </label>
       {onNextMonth && (
-        <button type="button" className="button-secondary month-selector-nav" onClick={onNextMonth}>
+        <button type="button" className="button-secondary month-selector-nav month-selector-next" onClick={onNextMonth}>
           次月
-        </button>
-      )}
-      {onResetMonth && (
-        <button type="button" className="button-secondary month-selector-today" onClick={onResetMonth}>
-          今月
         </button>
       )}
     </div>
