@@ -1035,12 +1035,15 @@ button:focus-visible {
   min-width: 0;
   max-width: 100%;
   max-inline-size: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .step-input-datetime input,
+.step-input-datetime select,
 .step-edit-datetime input,
-.step-inline-datetime input {
+.step-edit-datetime select,
+.step-inline-datetime input,
+.step-inline-datetime select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -1051,28 +1054,54 @@ button:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
-  align-items: center;
+  align-items: start;
   min-width: 0;
   width: 100%;
   max-width: 100%;
   max-inline-size: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.datetime-split > * {
+.datetime-split-field {
+  display: grid;
+  gap: 6px;
   min-width: 0;
   max-width: 100%;
   max-inline-size: 100%;
 }
 
+.datetime-split-label {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  padding-left: 2px;
+}
+
 .datetime-split-date,
-.datetime-split-time {
+.datetime-split-time-select {
   display: block;
   width: 100%;
   min-width: 0;
   max-width: 100%;
   max-inline-size: 100%;
   box-sizing: border-box;
+}
+
+.datetime-split-time-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.datetime-split-time-separator {
+  color: var(--text-sub);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .inline-step-add {
@@ -3107,13 +3136,17 @@ button:focus-visible {
   .step-edit-datetime,
   .step-inline-datetime,
   .datetime-split-date,
-  .datetime-split-time,
+  .datetime-split-time-select,
   input[type="datetime-local"] {
     font-size: 16px;
   }
 
   .datetime-split {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .datetime-split-time-group {
+    grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
   }
 
   .agenda-item {

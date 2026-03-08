@@ -28,9 +28,32 @@ function splitDateTimeValue(value: string): { date: string; time: string } {
   return { date: "", time: "" }
 }
 
+function resolveMinuteStep(step: number): number {
+  if (!Number.isFinite(step) || step <= 0) return 5
+  const minutes = Math.round(step / 60)
+  if (minutes <= 0 || 60 % minutes !== 0) return 5
+  return minutes
+}
+
+function buildNumberOptions(max: number, step = 1): string[] {
+  const values: string[] = []
+  for (let current = 0; current <= max; current += step) {
+    values.push(String(current).padStart(2, "0"))
+  }
+  return values
+}
+
 export function DateTimeField({ value, onChange, className, ariaLabel = "日時", step = 300 }: DateTimeFieldProps) {
   const [useSplitInput, setUseSplitInput] = useState(shouldUseSplitInput)
   const { date, time } = useMemo(() => splitDateTimeValue(value), [value])
+  const [hour = "", minute = ""] = time ? time.split(":") : ["", ""]
+  const minuteStep = useMemo(() => resolveMinuteStep(step), [step])
+  const hourOptions = useMemo(() => buildNumberOptions(23), [])
+  const minuteOptions = useMemo(() => buildNumberOptions(59, minuteStep), [minuteStep])
+  const visibleMinuteOptions = useMemo(() => {
+    if (!minute || minuteOptions.includes(minute)) return minuteOptions
+    return [...minuteOptions, minute].sort((left, right) => Number(left) - Number(right))
+  }, [minute, minuteOptions])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -52,37 +75,70 @@ export function DateTimeField({ value, onChange, className, ariaLabel = "日時"
   }
 
   const wrapperClass = className ? `datetime-split ${className}` : "datetime-split"
+  const nextHour = hour || "09"
+  const nextMinute = minute || minuteOptions[0] || "00"
 
   return (
     <div className={wrapperClass}>
-      <input
-        className="datetime-split-date"
-        type="date"
-        value={date}
-        onChange={(event) => {
-          const nextDate = event.target.value
-          if (!nextDate) {
-            onChange("")
-            return
-          }
-          onChange(`${nextDate}T${time || "09:00"}`)
-        }}
-        aria-label={`${ariaLabel} 日付`}
-      />
-      <input
-        className="datetime-split-time"
-        type="time"
-        step={step}
-        value={time}
-        onChange={(event) => {
-          const nextTime = event.target.value
-          if (!date) {
-            return
-          }
-          onChange(`${date}T${nextTime || "00:00"}`)
-        }}
-        aria-label={`${ariaLabel} 時刻`}
-      />
+      <label className="datetime-split-field">
+        <span className="datetime-split-label">日付</span>
+        <input
+          className="datetime-split-date"
+          type="date"
+          value={date}
+          onChange={(event) => {
+            const nextDate = event.target.value
+            if (!nextDate) {
+              onChange("")
+              return
+            }
+            onChange(`${nextDate}T${nextHour}:${nextMinute}`)
+          }}
+          aria-label={`${ariaLabel} 日付`}
+        />
+      </label>
+      <div className="datetime-split-field">
+        <span className="datetime-split-label">時刻</span>
+        <div className="datetime-split-time-group">
+          <select
+            className="datetime-split-time-select"
+            value={hour}
+            disabled={!date}
+            onChange={(event) => {
+              if (!date) return
+              onChange(`${date}T${event.target.value || nextHour}:${minute || nextMinute}`)
+            }}
+            aria-label={`${ariaLabel} 時`}
+          >
+            {!date && <option value="">時</option>}
+            {hourOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}時
+              </option>
+            ))}
+          </select>
+          <span className="datetime-split-time-separator" aria-hidden="true">
+            :
+          </span>
+          <select
+            className="datetime-split-time-select"
+            value={minute}
+            disabled={!date}
+            onChange={(event) => {
+              if (!date) return
+              onChange(`${date}T${hour || nextHour}:${event.target.value || nextMinute}`)
+            }}
+            aria-label={`${ariaLabel} 分`}
+          >
+            {!date && <option value="">分</option>}
+            {visibleMinuteOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}分
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   )
 }
