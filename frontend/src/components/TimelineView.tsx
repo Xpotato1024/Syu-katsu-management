@@ -1,13 +1,17 @@
 import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { weekdayShort } from "../constants"
 import type { AgendaEvent, Company, SelectionStep } from "../types"
-import { formatDurationLabel, formatRemainingLabel, formatTimeLabel, toDateInputValue, toMonthInputValue } from "../utils/date"
+import { formatDurationLabel, formatRemainingLabel, formatTimeLabel, toDateInputValue } from "../utils/date"
 import { stepKindTone, stepLabel } from "../utils/selection"
+import { MonthSelector } from "./MonthSelector"
 import { StepDetailModal } from "./StepDetailModal"
 
 type TimelineViewProps = {
   timelineMonth: Date
   onSetMonth: (value: string) => void
+  onPrevMonth: () => void
+  onNextMonth: () => void
+  onResetMonth: () => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -46,6 +50,9 @@ function formatRangeLabel(days: Date[]): string {
 export function TimelineView({
   timelineMonth,
   onSetMonth,
+  onPrevMonth,
+  onNextMonth,
+  onResetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -58,15 +65,12 @@ export function TimelineView({
 }: TimelineViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const headerRefs = useRef<Array<HTMLDivElement | null>>([])
-  const monthPickerRef = useRef<HTMLInputElement | null>(null)
   const [compactMode, setCompactMode] = useState(defaultCompactMode)
   const [collapsedCompanyIDs, setCollapsedCompanyIDs] = useState<Record<string, boolean>>({})
   const [rangeMode, setRangeMode] = useState<TimelineRangeMode>("month")
   const [rangeStartIndex, setRangeStartIndex] = useState(0)
   const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
   const [activeEvent, setActiveEvent] = useState<AgendaEvent | null>(null)
-  const [isMonthEditorOpen, setIsMonthEditorOpen] = useState(false)
-  const [monthDraft, setMonthDraft] = useState(() => toMonthInputValue(timelineMonth))
 
   const today = useMemo(() => new Date(), [])
   const rangeSpan = useMemo(() => rangeSize(rangeMode, timelineDays.length), [rangeMode, timelineDays.length])
@@ -171,7 +175,6 @@ export function TimelineView({
 
   const hasCollapsedRows = useMemo(() => Object.values(collapsedCompanyIDs).some((value) => value), [collapsedCompanyIDs])
   const shownRangeLabel = useMemo(() => formatRangeLabel(displayedDays), [displayedDays])
-  const monthInputValue = useMemo(() => toMonthInputValue(timelineMonth), [timelineMonth])
   const firstVisibleDayKey = displayedDays.length > 0 ? toDateInputValue(displayedDays[0].toISOString()) : ""
   const lastVisibleDayKey =
     displayedDays.length > 0 ? toDateInputValue(displayedDays[displayedDays.length - 1].toISOString()) : ""
@@ -192,35 +195,6 @@ export function TimelineView({
     onCalendarCompanyFilterChange(filterInput)
   }
 
-  function openMonthPicker() {
-    const picker = monthPickerRef.current
-    if (picker) {
-      try {
-        if (typeof picker.showPicker === "function") {
-          picker.showPicker()
-          return
-        }
-        picker.focus()
-        picker.click()
-        return
-      } catch (_error) {
-        // showPicker/click が使えない環境ではインライン入力へフォールバックする
-      }
-    }
-    setMonthDraft(monthInputValue)
-    setIsMonthEditorOpen(true)
-  }
-
-  function onMonthDraftSubmit(event: FormEvent) {
-    event.preventDefault()
-    onSetMonth(monthDraft)
-    setIsMonthEditorOpen(false)
-  }
-
-  useEffect(() => {
-    setMonthDraft(monthInputValue)
-  }, [monthInputValue])
-
   return (
     <>
       <section className="hero">
@@ -230,37 +204,8 @@ export function TimelineView({
       <section className="panel timeline-toolbar">
         <h2>企業別カレンダー</h2>
         <div className="row timeline-row-month">
-          <button type="button" className="month-badge timeline-month-badge month-badge-button" onClick={openMonthPicker}>
-            {`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}
-            <small>クリックで変更</small>
-          </button>
-          <input
-            ref={monthPickerRef}
-            className="month-picker-hidden"
-            type="month"
-            value={monthInputValue}
-            onChange={(changeEvent) => {
-              onSetMonth(changeEvent.target.value)
-              setIsMonthEditorOpen(false)
-            }}
-            aria-label="表示月を変更"
-          />
+          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} onResetMonth={onResetMonth} />
         </div>
-        {isMonthEditorOpen && (
-          <form className="row month-fallback-form" onSubmit={onMonthDraftSubmit}>
-            <input
-              className="month-fallback-input"
-              type="month"
-              value={monthDraft}
-              onChange={(event) => setMonthDraft(event.target.value)}
-              aria-label="表示月を YYYY-MM で入力"
-            />
-            <button type="submit">適用</button>
-            <button type="button" className="button-secondary" onClick={() => setIsMonthEditorOpen(false)}>
-              閉じる
-            </button>
-          </form>
-        )}
         <div className="row timeline-range-switch timeline-row-range">
           <label className="timeline-mode-select">
             表示範囲

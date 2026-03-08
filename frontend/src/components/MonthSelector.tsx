@@ -1,0 +1,57 @@
+import { useMemo } from "react"
+import { buildMonthOptions, buildYearOptions, splitMonthInputValue, toMonthInputValue } from "../utils/date"
+
+type MonthSelectorProps = {
+  value: Date
+  onSetMonth: (value: string) => void
+  onPrevMonth?: () => void
+  onNextMonth?: () => void
+  onResetMonth?: () => void
+}
+
+export function MonthSelector({ value, onSetMonth, onPrevMonth, onNextMonth, onResetMonth }: MonthSelectorProps) {
+  const monthValue = useMemo(() => toMonthInputValue(value), [value])
+  const { year, month } = useMemo(() => splitMonthInputValue(monthValue), [monthValue])
+  const yearOptions = useMemo(() => buildYearOptions(year, 2, 5, value), [value, year])
+  const monthOptions = useMemo(() => buildMonthOptions(), [])
+
+  return (
+    <div className="month-selector-toolbar">
+      {onPrevMonth && (
+        <button type="button" className="button-secondary month-selector-nav" onClick={onPrevMonth}>
+          前月
+        </button>
+      )}
+      <label className="month-selector-field">
+        <span>年</span>
+        <select value={year} onChange={(event) => onSetMonth(`${event.target.value}-${month || "01"}`)} aria-label="表示年を変更">
+          {yearOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}年
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="month-selector-field">
+        <span>月</span>
+        <select value={month} onChange={(event) => onSetMonth(`${year || String(value.getFullYear())}-${event.target.value}`)} aria-label="表示月を変更">
+          {monthOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}月
+            </option>
+          ))}
+        </select>
+      </label>
+      {onNextMonth && (
+        <button type="button" className="button-secondary month-selector-nav" onClick={onNextMonth}>
+          次月
+        </button>
+      )}
+      {onResetMonth && (
+        <button type="button" className="button-secondary month-selector-today" onClick={onResetMonth}>
+          今月
+        </button>
+      )}
+    </div>
+  )
+}
