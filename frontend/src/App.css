@@ -1112,35 +1112,43 @@ button:focus-visible {
   line-height: 1;
 }
 
-.month-selector-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+.month-selector-grid {
+  display: grid;
+  grid-template-columns: auto minmax(132px, 1fr) minmax(112px, 1fr) auto;
+  grid-template-areas: "prev year month next";
   gap: 8px;
-  align-items: end;
+  align-items: center;
   width: 100%;
 }
 
 .month-selector-field {
-  display: grid;
-  gap: 6px;
-  min-width: 108px;
-}
-
-.month-selector-field span {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
+  min-width: 0;
 }
 
 .month-selector-field select {
+  width: 100%;
   min-width: 0;
 }
 
-.month-selector-nav,
-.month-selector-today {
+.month-selector-prev {
+  grid-area: prev;
+}
+
+.month-selector-year {
+  grid-area: year;
+}
+
+.month-selector-month {
+  grid-area: month;
+}
+
+.month-selector-next {
+  grid-area: next;
+}
+
+.month-selector-nav {
   min-width: 0;
-  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .inline-step-add {
@@ -3193,13 +3201,16 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
   }
 
-  .month-selector-toolbar {
+  .month-selector-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "year month"
+      "prev next";
     align-items: stretch;
   }
 
   .month-selector-field,
-  .month-selector-nav,
-  .month-selector-today {
+  .month-selector-nav {
     width: 100%;
   }
 

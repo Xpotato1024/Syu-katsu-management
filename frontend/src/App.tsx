@@ -134,7 +134,6 @@ export function App() {
           onSetMonth={timeline.setTimelineMonthByInput}
           onPrevMonth={timeline.prevMonth}
           onNextMonth={timeline.nextMonth}
-          onResetMonth={timeline.resetMonth}
           calendarCompanyFilter={timeline.calendarCompanyFilter}
           onCalendarCompanyFilterChange={timeline.setCalendarCompanyFilter}
           onClearCalendarCompanyFilter={timeline.clearCalendarCompanyFilter}
@@ -153,7 +152,6 @@ export function App() {
           onSetMonth={timeline.setTimelineMonthByInput}
           onPrevMonth={timeline.prevMonth}
           onNextMonth={timeline.nextMonth}
-          onResetMonth={timeline.resetMonth}
           calendarCompanyFilter={timeline.calendarCompanyFilter}
           onCalendarCompanyFilterChange={timeline.setCalendarCompanyFilter}
           onClearCalendarCompanyFilter={timeline.clearCalendarCompanyFilter}

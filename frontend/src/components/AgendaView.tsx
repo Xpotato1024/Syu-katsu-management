@@ -10,7 +10,6 @@ type AgendaViewProps = {
   onSetMonth: (value: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
-  onResetMonth: () => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -25,7 +24,6 @@ export function AgendaView({
   onSetMonth,
   onPrevMonth,
   onNextMonth,
-  onResetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -55,7 +53,7 @@ export function AgendaView({
       <section className="panel timeline-toolbar">
         <h2>統合予定</h2>
         <div className="row timeline-row-month">
-          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} onResetMonth={onResetMonth} />
+          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
         </div>
         <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
           <div className="row timeline-filter-primary">
