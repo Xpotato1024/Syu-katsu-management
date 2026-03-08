@@ -82,4 +82,6 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
+          build-args: |
+            VITE_APP_VERSION=${{ steps.tag.outputs.value }}
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/syu-katsu-management-frontend:${{ steps.tag.outputs.value }}

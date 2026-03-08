@@ -68,7 +68,8 @@ export function formatRemainingLabel(value?: string, base = new Date()): string 
   const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate())
   const diffDays = Math.round((targetDay.getTime() - baseDay.getTime()) / 86_400_000)
 
-  if (diffDays > 0) return `D-${diffDays}`
+  if (diffDays > 1) return `あと${diffDays}日`
+  if (diffDays === 1) return "明日"
   if (diffDays === 0) return "本日"
   return `期限超過${Math.abs(diffDays)}日`
 }

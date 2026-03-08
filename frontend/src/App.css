@@ -654,6 +654,8 @@ button:focus-visible {
   padding: 8px;
   display: grid;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .step-builder-item-head {
@@ -689,6 +691,11 @@ button:focus-visible {
 .step-builder-row select {
   width: 100%;
   min-width: 0;
+}
+
+.step-builder-row > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .step-input-delete {
@@ -1028,6 +1035,7 @@ button:focus-visible {
   min-width: 0;
   max-width: 100%;
   max-inline-size: 100%;
+  overflow: hidden;
 }
 
 .step-input-datetime input,
@@ -1046,12 +1054,25 @@ button:focus-visible {
   align-items: center;
   min-width: 0;
   width: 100%;
+  max-width: 100%;
+  max-inline-size: 100%;
+  overflow: hidden;
+}
+
+.datetime-split > * {
+  min-width: 0;
+  max-width: 100%;
+  max-inline-size: 100%;
 }
 
 .datetime-split-date,
 .datetime-split-time {
+  display: block;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  max-inline-size: 100%;
+  box-sizing: border-box;
 }
 
 .inline-step-add {
