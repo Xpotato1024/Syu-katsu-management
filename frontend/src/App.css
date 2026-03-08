@@ -1501,17 +1501,43 @@ button:focus-visible {
   min-width: 140px;
 }
 
-.timeline-mode-select {
-  display: inline-flex;
-  align-items: center;
+.timeline-row-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) auto minmax(110px, auto) auto;
   gap: 8px;
-  color: #4f6885;
-  font-size: 13px;
-  font-weight: 700;
+  align-items: center;
 }
 
-.timeline-mode-select select {
-  min-width: 118px;
+.timeline-range-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.timeline-range-mode {
+  min-width: 0;
+  padding-inline: 10px;
+}
+
+.timeline-range-arrow {
+  width: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-range-arrow svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .timeline-filter-form {
@@ -1583,6 +1609,11 @@ button:focus-visible {
   padding: 8px 4px;
   font-size: 13px;
   font-weight: 700;
+}
+
+.timeline-range-label-fixed {
+  text-align: center;
+  white-space: nowrap;
 }
 
 .timeline-header small {
@@ -3037,14 +3068,29 @@ button:focus-visible {
   }
 
   .timeline-row-range {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1.4fr) auto minmax(90px, auto) auto;
     overflow-x: visible;
     padding-bottom: 0;
   }
 
-  .timeline-row-range button,
-  .timeline-range-label {
-    flex: 0 0 auto;
+  .timeline-range-modes {
+    gap: 4px;
+  }
+
+  .timeline-range-mode {
+    padding-inline: 8px;
+  }
+
+  .timeline-range-arrow {
+    width: 38px;
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  .timeline-range-label-fixed {
+    min-width: 0;
+    font-size: 12px;
+    padding-inline: 10px;
   }
 
   .month-fallback-form {
