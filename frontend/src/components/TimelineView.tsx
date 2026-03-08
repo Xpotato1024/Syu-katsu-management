@@ -193,6 +193,25 @@ export function TimelineView({
     onCalendarCompanyFilterChange(filterInput)
   }
 
+  const canMoveRangePrev = rangeMode === "month" ? timelineDays.length > 0 : rangeStartIndex > 0
+  const canMoveRangeNext = rangeMode === "month" ? timelineDays.length > 0 : rangeStartIndex < maxRangeStart
+
+  function onMoveRangePrev() {
+    if (rangeMode === "month") {
+      onPrevMonth()
+      return
+    }
+    setRangeStartIndex((prev) => Math.max(0, prev - rangeSpan))
+  }
+
+  function onMoveRangeNext() {
+    if (rangeMode === "month") {
+      onNextMonth()
+      return
+    }
+    setRangeStartIndex((prev) => Math.min(maxRangeStart, prev + rangeSpan))
+  }
+
   return (
     <>
       <section className="hero">
@@ -205,35 +224,40 @@ export function TimelineView({
           <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
         </div>
         <div className="row timeline-range-switch timeline-row-range">
-          <label className="timeline-mode-select">
-            表示範囲
-            <select value={rangeMode} onChange={(changeEvent) => setRangeMode(changeEvent.target.value as TimelineRangeMode)}>
-              <option value="3d">3日表示</option>
-              <option value="7d">7日表示</option>
-              <option value="month">月表示</option>
-            </select>
-          </label>
-          {rangeMode !== "month" && (
-            <>
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={rangeStartIndex <= 0}
-                onClick={() => setRangeStartIndex((prev) => Math.max(0, prev - rangeSpan))}
-              >
-                期間←
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={rangeStartIndex >= maxRangeStart}
-                onClick={() => setRangeStartIndex((prev) => Math.min(maxRangeStart, prev + rangeSpan))}
-              >
-                期間→
-              </button>
-            </>
-          )}
-          {shownRangeLabel && <span className="timeline-range-label">{shownRangeLabel}</span>}
+          <div className="timeline-range-modes" role="tablist" aria-label="表示範囲">
+            <button
+              type="button"
+              className={rangeMode === "3d" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
+              onClick={() => setRangeMode("3d")}
+            >
+              3日
+            </button>
+            <button
+              type="button"
+              className={rangeMode === "7d" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
+              onClick={() => setRangeMode("7d")}
+            >
+              7日
+            </button>
+            <button
+              type="button"
+              className={rangeMode === "month" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
+              onClick={() => setRangeMode("month")}
+            >
+              1月
+            </button>
+          </div>
+          <button type="button" className="button-secondary timeline-range-arrow" disabled={!canMoveRangePrev} onClick={onMoveRangePrev} aria-label="前の期間">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M10.5 3 5.5 8l5 5" />
+            </svg>
+          </button>
+          {shownRangeLabel && <span className="timeline-range-label timeline-range-label-fixed">{shownRangeLabel}</span>}
+          <button type="button" className="button-secondary timeline-range-arrow" disabled={!canMoveRangeNext} onClick={onMoveRangeNext} aria-label="次の期間">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M5.5 3 10.5 8l-5 5" />
+            </svg>
+          </button>
         </div>
         <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
           <div className="row timeline-filter-primary">
