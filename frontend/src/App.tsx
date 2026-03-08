@@ -93,6 +93,8 @@ export function App() {
           filterName={companies.filterName}
           filterStatuses={companies.filterStatuses}
           nameInput={companies.nameInput}
+          newCompanyMypageLink={companies.newCompanyMypageLink}
+          newCompanyMypageId={companies.newCompanyMypageId}
           newCompanyStatus={companies.newCompanyStatus}
           newCompanyInterest={companies.newCompanyInterest}
           newSteps={companies.newSteps}
@@ -106,6 +108,8 @@ export function App() {
           onFilterSubmit={onFilterSubmit}
           onClearFilter={() => void companies.clearFilter()}
           onNameInputChange={companies.setNameInput}
+          onNewCompanyMypageLinkChange={companies.setNewCompanyMypageLink}
+          onNewCompanyMypageIdChange={companies.setNewCompanyMypageId}
           onNewCompanyStatusChange={companies.setNewCompanyStatus}
           onNewCompanyInterestChange={companies.setNewCompanyInterest}
           onUpdateNewStep={companies.updateNewStep}
