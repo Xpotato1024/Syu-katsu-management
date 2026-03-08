@@ -412,37 +412,49 @@ export function CompaniesView({
 
                   <section className="doc-editor">
                     <h4>企業情報</h4>
-                    <div className="row">
-                      <select
-                        value={companyEdit.interestLevel}
-                        onChange={(e) => onUpdateCompanyEdit(company.id, { interestLevel: e.target.value })}
-                      >
-                        {companyInterestOptions.map((level) => (
-                          <option key={level} value={level}>
-                            志望度: {level}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={companyEdit.selectionStatus}
-                        onChange={(e) => onUpdateCompanyEdit(company.id, { selectionStatus: e.target.value })}
-                      >
-                        {companyStatusOptions.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        value={companyEdit.mypageLink}
-                        onChange={(e) => onUpdateCompanyEdit(company.id, { mypageLink: e.target.value })}
-                        placeholder="エントリーページURL"
-                      />
-                      <input
-                        value={companyEdit.mypageId}
-                        onChange={(e) => onUpdateCompanyEdit(company.id, { mypageId: e.target.value })}
-                        placeholder="エントリーID"
-                      />
+                    <div className="company-info-grid">
+                      <label className="company-info-field">
+                        <span>志望度</span>
+                        <select
+                          value={companyEdit.interestLevel}
+                          onChange={(e) => onUpdateCompanyEdit(company.id, { interestLevel: e.target.value })}
+                        >
+                          {companyInterestOptions.map((level) => (
+                            <option key={level} value={level}>
+                              {level}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="company-info-field">
+                        <span>選考状況</span>
+                        <select
+                          value={companyEdit.selectionStatus}
+                          onChange={(e) => onUpdateCompanyEdit(company.id, { selectionStatus: e.target.value })}
+                        >
+                          {companyStatusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="company-info-field">
+                        <span>マイページURL</span>
+                        <input
+                          value={companyEdit.mypageLink}
+                          onChange={(e) => onUpdateCompanyEdit(company.id, { mypageLink: e.target.value })}
+                          placeholder="https://example.com/mypage"
+                        />
+                      </label>
+                      <label className="company-info-field">
+                        <span>マイページID</span>
+                        <input
+                          value={companyEdit.mypageId}
+                          onChange={(e) => onUpdateCompanyEdit(company.id, { mypageId: e.target.value })}
+                          placeholder="マイページID"
+                        />
+                      </label>
                     </div>
                     <div className="actions section-save-actions company-info-actions">
                       {companyEdit.mypageLink && (

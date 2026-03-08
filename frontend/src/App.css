@@ -718,6 +718,24 @@ button:focus-visible {
   flex-wrap: wrap;
 }
 
+.company-info-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.company-info-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.company-info-field span {
+  color: #4f6782;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .inline-action-link {
   border: 1px solid #a5d3da;
   border-radius: 999px;
@@ -2654,6 +2672,7 @@ button:focus-visible {
 
 .dark .muted,
 .dark .doc-label,
+.dark .company-info-field span,
 .dark .agenda-company,
 .dark .timeline-company small,
 .dark .timeline-header small,
