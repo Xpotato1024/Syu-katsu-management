@@ -27,7 +27,7 @@ func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
 			name TEXT NOT NULL,
 			mypage_link TEXT NOT NULL DEFAULT '',
 			mypage_id TEXT NOT NULL DEFAULT '',
-			interest_level TEXT NOT NULL DEFAULT '未設定',
+			interest_level TEXT NOT NULL DEFAULT '妥当',
 			selection_flow TEXT NOT NULL DEFAULT '',
 			selection_status TEXT NOT NULL DEFAULT '',
 			es_content TEXT NOT NULL DEFAULT '',
@@ -49,7 +49,17 @@ func (r *PostgresRepository) AutoMigrate(ctx context.Context) error {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_selection_steps_company_created ON selection_steps (company_id, created_at ASC);`,
-		`ALTER TABLE companies ADD COLUMN IF NOT EXISTS interest_level TEXT NOT NULL DEFAULT '未設定';`,
+		`ALTER TABLE companies ADD COLUMN IF NOT EXISTS interest_level TEXT NOT NULL DEFAULT '妥当';`,
+		`ALTER TABLE companies ALTER COLUMN interest_level SET DEFAULT '妥当';`,
+		`UPDATE companies
+		 SET interest_level = CASE interest_level
+		   WHEN '未設定' THEN '妥当'
+		   WHEN '高' THEN '本命'
+		   WHEN '中' THEN '妥当'
+		   WHEN '低' THEN '抑え'
+		   ELSE interest_level
+		 END
+		 WHERE interest_level IN ('未設定', '高', '中', '低');`,
 		`ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 0;`,
 		`ALTER TABLE selection_steps ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';`,
 	}
@@ -111,6 +121,7 @@ func (r *PostgresRepository) List(userID string, filter ListFilter) []Company {
 		); err != nil {
 			continue
 		}
+		company.InterestLevel = coerceInterestLevel(company.InterestLevel)
 		steps, err := r.listSteps(ctx, company.ID)
 		if err != nil {
 			continue
@@ -151,6 +162,7 @@ func (r *PostgresRepository) GetByID(userID, id string) (Company, error) {
 		}
 		return Company{}, err
 	}
+	company.InterestLevel = coerceInterestLevel(company.InterestLevel)
 
 	steps, err := r.listSteps(ctx, company.ID)
 	if err != nil {
@@ -267,7 +279,7 @@ func (r *PostgresRepository) Update(userID, id string, input UpsertInput) (Compa
 		status = DefaultCompanyStatus
 	}
 
-	interestLevel := existing.InterestLevel
+	interestLevel := coerceInterestLevel(existing.InterestLevel)
 	if strings.TrimSpace(input.InterestLevel) != "" {
 		interestLevel, err = normalizeInterestLevel(input.InterestLevel)
 		if err != nil {
@@ -689,6 +701,7 @@ func getCompanyForUpdate(ctx context.Context, q querier, userID, companyID strin
 		}
 		return Company{}, err
 	}
+	company.InterestLevel = coerceInterestLevel(company.InterestLevel)
 	return company, nil
 }
 

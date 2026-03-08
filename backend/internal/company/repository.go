@@ -13,7 +13,7 @@ import (
 
 const (
 	DefaultCompanyStatus  = "未着手"
-	DefaultInterestLevel = "未設定"
+	DefaultInterestLevel = "妥当"
 	MaxDurationMinutes   = 24 * 60
 )
 
@@ -53,6 +53,7 @@ func (r *Repository) List(userID string, filter ListFilter) []Company {
 		if status != "" && c.SelectionStatus != status {
 			continue
 		}
+		c.InterestLevel = coerceInterestLevel(c.InterestLevel)
 		companies = append(companies, c)
 	}
 	sort.Slice(companies, func(i, j int) bool {
@@ -69,6 +70,7 @@ func (r *Repository) GetByID(userID, id string) (Company, error) {
 	if !ok {
 		return Company{}, ErrNotFound
 	}
+	c.InterestLevel = coerceInterestLevel(c.InterestLevel)
 	return c, nil
 }
 
@@ -142,7 +144,7 @@ func (r *Repository) Update(userID, id string, input UpsertInput) (Company, erro
 		status = DefaultCompanyStatus
 	}
 
-	interestLevel := existing.InterestLevel
+	interestLevel := coerceInterestLevel(existing.InterestLevel)
 	if strings.TrimSpace(input.InterestLevel) != "" {
 		interestLevel, err = normalizeInterestLevel(input.InterestLevel)
 		if err != nil {
@@ -420,28 +422,45 @@ func normalizeInterestLevel(raw string) (string, error) {
 	}
 
 	aliases := map[string]string{
-		"S":  "高",
-		"A":  "高",
-		"B":  "中",
-		"C":  "低",
-		"高い": "高",
-		"中位": "中",
-		"低い": "低",
+		"未設定":   DefaultInterestLevel,
+		"S":     "本命",
+		"A":     "本命",
+		"B":     "妥当",
+		"C":     "抑え",
+		"高":     "本命",
+		"中":     "妥当",
+		"低":     "抑え",
+		"高い":    "本命",
+		"中位":    "妥当",
+		"低い":    "抑え",
+		"チャレンジ": "挑戦",
+		"ストレッチ": "挑戦",
+		"安全":    "抑え",
+		"練習枠":   "練習",
 	}
 	if normalized, ok := aliases[candidate]; ok {
 		candidate = normalized
 	}
 
 	allowed := map[string]struct{}{
-		DefaultInterestLevel: {},
-		"高":                 {},
-		"中":                 {},
-		"低":                 {},
+		"挑戦": {},
+		"本命": {},
+		"妥当": {},
+		"抑え": {},
+		"練習": {},
 	}
 	if _, ok := allowed[candidate]; !ok {
 		return "", invalidInput("interestLevel is invalid")
 	}
 	return candidate, nil
+}
+
+func coerceInterestLevel(raw string) string {
+	normalized, err := normalizeInterestLevel(raw)
+	if err != nil {
+		return DefaultInterestLevel
+	}
+	return normalized
 }
 
 func normalizeSelectionStepKind(raw string) (string, error) {

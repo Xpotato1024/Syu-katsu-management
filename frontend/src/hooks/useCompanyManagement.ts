@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { companyInterestOptions, companyStatusOptions, stepStatusOptions } from "../constants"
+import { companyStatusOptions, defaultInterestLevel, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { toDateTimeInputValue, toDurationInputValue, toDurationMinutesPayload, toScheduledAtPayload } from "../utils/date"
 import { newStepDraft } from "../utils/selection"
@@ -20,7 +20,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
   const [companies, setCompanies] = useState<Company[]>([])
   const [nameInput, setNameInput] = useState("")
   const [newCompanyStatus, setNewCompanyStatus] = useState<string>(companyStatusOptions[0])
-  const [newCompanyInterest, setNewCompanyInterest] = useState<string>(companyInterestOptions[0])
+  const [newCompanyInterest, setNewCompanyInterest] = useState<string>(defaultInterestLevel)
   const [newSteps, setNewSteps] = useState<StepDraft[]>([newStepDraft()])
   const [stepDraftByCompany, setStepDraftByCompany] = useState<Record<string, StepDraft>>({})
   const [stepEdits, setStepEdits] = useState<Record<string, StepEdit>>({})
@@ -91,7 +91,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
               next[company.id] = {
                 mypageLink: company.mypageLink || "",
                 mypageId: company.mypageId || "",
-                interestLevel: company.interestLevel || companyInterestOptions[0],
+                interestLevel: company.interestLevel || defaultInterestLevel,
                 selectionStatus: company.selectionStatus || companyStatusOptions[0],
                 researchContent: company.researchContent || "",
                 esContent: company.esContent || ""
@@ -99,7 +99,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             } else if (!next[company.id].selectionStatus || !next[company.id].interestLevel) {
               next[company.id] = {
                 ...next[company.id],
-                interestLevel: company.interestLevel || companyInterestOptions[0],
+                interestLevel: company.interestLevel || defaultInterestLevel,
                 selectionStatus: company.selectionStatus || companyStatusOptions[0]
               }
             }
@@ -169,7 +169,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
 
     setNameInput("")
     setNewCompanyStatus(companyStatusOptions[0])
-    setNewCompanyInterest(companyInterestOptions[0])
+    setNewCompanyInterest(defaultInterestLevel)
     setNewSteps([newStepDraft()])
     await loadCompanies(filterName, filterStatuses, { silent: true })
     onToast?.("企業を追加しました。", "success")
@@ -326,7 +326,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
       const current = prev[companyID] ?? {
         mypageLink: "",
         mypageId: "",
-        interestLevel: companyInterestOptions[0],
+        interestLevel: defaultInterestLevel,
         selectionStatus: companyStatusOptions[0],
         researchContent: "",
         esContent: ""
@@ -388,7 +388,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             name: company.name,
             mypageLink: edit.mypageLink,
             mypageId: edit.mypageId,
-            interestLevel: edit.interestLevel || company.interestLevel || companyInterestOptions[0],
+            interestLevel: edit.interestLevel || company.interestLevel || defaultInterestLevel,
             selectionFlow: company.selectionFlow || "",
             selectionStatus: edit.selectionStatus || company.selectionStatus,
             selectionSteps: (company.selectionSteps || []).map((step) => ({
@@ -441,7 +441,7 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
             name: company.name,
             mypageLink: company.mypageLink || "",
             mypageId: company.mypageId || "",
-            interestLevel: company.interestLevel || companyInterestOptions[0],
+            interestLevel: company.interestLevel || defaultInterestLevel,
             selectionFlow: company.selectionFlow || "",
             selectionStatus: company.selectionStatus || companyStatusOptions[0],
             selectionSteps: (company.selectionSteps || []).map((step) => ({

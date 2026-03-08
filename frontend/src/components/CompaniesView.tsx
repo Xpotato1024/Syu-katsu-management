@@ -1,7 +1,7 @@
 import { Fragment, type FormEvent, useEffect, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { companyInterestOptions, companyStatusOptions, stepKindOptions, stepStatusOptions } from "../constants"
+import { companyInterestOptions, companyStatusOptions, defaultInterestLevel, stepKindOptions, stepStatusOptions } from "../constants"
 import type { Company, CompanyDetailEdit, StepDraft, StepEdit } from "../types"
 import { newStepDraft, resolveCurrentStepIndex, stepLabel, stepVisualState } from "../utils/selection"
 import { toDateTimeInputValue } from "../utils/date"
@@ -329,7 +329,7 @@ export function CompaniesView({
           const companyEdit = companyEdits[company.id] ?? {
             mypageLink: company.mypageLink || "",
             mypageId: company.mypageId || "",
-            interestLevel: company.interestLevel || companyInterestOptions[0],
+            interestLevel: company.interestLevel || defaultInterestLevel,
             selectionStatus: company.selectionStatus || companyStatusOptions[0],
             researchContent: company.researchContent || "",
             esContent: company.esContent || ""

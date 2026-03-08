@@ -1503,21 +1503,14 @@ button:focus-visible {
 
 .timeline-row-range {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) auto minmax(110px, auto) auto;
+  grid-template-columns: minmax(0, 148px) auto minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
 
-.timeline-range-modes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+.timeline-range-select {
   min-width: 0;
-}
-
-.timeline-range-mode {
-  min-width: 0;
-  padding-inline: 10px;
+  width: 100%;
 }
 
 .timeline-range-arrow {
@@ -1612,8 +1605,11 @@ button:focus-visible {
 }
 
 .timeline-range-label-fixed {
+  display: block;
   text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timeline-header small {
@@ -3068,17 +3064,13 @@ button:focus-visible {
   }
 
   .timeline-row-range {
-    grid-template-columns: minmax(0, 1.4fr) auto minmax(90px, auto) auto;
+    grid-template-columns: minmax(0, 128px) auto minmax(0, 1fr) auto;
     overflow-x: visible;
     padding-bottom: 0;
   }
 
-  .timeline-range-modes {
-    gap: 4px;
-  }
-
-  .timeline-range-mode {
-    padding-inline: 8px;
+  .timeline-range-select {
+    min-width: 0;
   }
 
   .timeline-range-arrow {

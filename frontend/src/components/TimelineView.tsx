@@ -24,6 +24,12 @@ type TimelineViewProps = {
 
 type TimelineRangeMode = "3d" | "7d" | "month"
 
+const timelineRangeOptions: Array<{ value: TimelineRangeMode; label: string }> = [
+  { value: "3d", label: "3日" },
+  { value: "7d", label: "7日" },
+  { value: "month", label: "1月" }
+]
+
 function isSameLocalDate(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
@@ -224,35 +230,19 @@ export function TimelineView({
           <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
         </div>
         <div className="row timeline-range-switch timeline-row-range">
-          <div className="timeline-range-modes" role="tablist" aria-label="表示範囲">
-            <button
-              type="button"
-              className={rangeMode === "3d" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
-              onClick={() => setRangeMode("3d")}
-            >
-              3日
-            </button>
-            <button
-              type="button"
-              className={rangeMode === "7d" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
-              onClick={() => setRangeMode("7d")}
-            >
-              7日
-            </button>
-            <button
-              type="button"
-              className={rangeMode === "month" ? "button-secondary active-toggle timeline-range-mode" : "button-secondary timeline-range-mode"}
-              onClick={() => setRangeMode("month")}
-            >
-              1月
-            </button>
-          </div>
+          <select className="timeline-range-select" value={rangeMode} onChange={(event) => setRangeMode(event.target.value as TimelineRangeMode)} aria-label="表示範囲">
+            {timelineRangeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <button type="button" className="button-secondary timeline-range-arrow" disabled={!canMoveRangePrev} onClick={onMoveRangePrev} aria-label="前の期間">
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M10.5 3 5.5 8l5 5" />
             </svg>
           </button>
-          {shownRangeLabel && <span className="timeline-range-label timeline-range-label-fixed">{shownRangeLabel}</span>}
+          <span className="timeline-range-label timeline-range-label-fixed">{shownRangeLabel || "-"}</span>
           <button type="button" className="button-secondary timeline-range-arrow" disabled={!canMoveRangeNext} onClick={onMoveRangeNext} aria-label="次の期間">
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M5.5 3 10.5 8l-5 5" />
