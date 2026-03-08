@@ -19,6 +19,8 @@ const allCompanyStatuses = [...companyStatusOptions]
 export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementArgs) {
   const [companies, setCompanies] = useState<Company[]>([])
   const [nameInput, setNameInput] = useState("")
+  const [newCompanyMypageLink, setNewCompanyMypageLink] = useState("")
+  const [newCompanyMypageId, setNewCompanyMypageId] = useState("")
   const [newCompanyStatus, setNewCompanyStatus] = useState<string>(companyStatusOptions[0])
   const [newCompanyInterest, setNewCompanyInterest] = useState<string>(defaultInterestLevel)
   const [newSteps, setNewSteps] = useState<StepDraft[]>([newStepDraft()])
@@ -135,8 +137,8 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: nameInput,
-          mypageLink: "",
-          mypageId: "",
+          mypageLink: newCompanyMypageLink,
+          mypageId: newCompanyMypageId,
           interestLevel: newCompanyInterest,
           selectionStatus: newCompanyStatus,
           selectionSteps: newSteps.map((step) => ({
@@ -168,12 +170,14 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     }
 
     setNameInput("")
+    setNewCompanyMypageLink("")
+    setNewCompanyMypageId("")
     setNewCompanyStatus(companyStatusOptions[0])
     setNewCompanyInterest(defaultInterestLevel)
     setNewSteps([newStepDraft()])
     await loadCompanies(filterName, filterStatuses, { silent: true })
     onToast?.("企業を追加しました。", "success")
-  }, [apiBase, filterName, filterStatuses, loadCompanies, nameInput, newCompanyInterest, newCompanyStatus, newSteps, onToast])
+  }, [apiBase, filterName, filterStatuses, loadCompanies, nameInput, newCompanyInterest, newCompanyMypageId, newCompanyMypageLink, newCompanyStatus, newSteps, onToast])
 
   const applyFilter = useCallback(async () => {
     const ok = await loadCompanies(filterName, filterStatuses, { silent: true })
@@ -585,6 +589,10 @@ export function useCompanyManagement({ apiBase, onToast }: UseCompanyManagementA
     companies,
     nameInput,
     setNameInput,
+    newCompanyMypageLink,
+    setNewCompanyMypageLink,
+    newCompanyMypageId,
+    setNewCompanyMypageId,
     newCompanyStatus,
     setNewCompanyStatus,
     newCompanyInterest,
