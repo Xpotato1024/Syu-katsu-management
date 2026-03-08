@@ -3232,11 +3232,17 @@ button:focus-visible {
   }
 
   .datetime-split-date-group {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.92fr) minmax(0, 0.92fr);
+    gap: 4px;
   }
 
   .datetime-split-time-group {
     grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  }
+
+  .datetime-split-date-select {
+    font-size: 14px;
+    padding-inline: 8px;
   }
 
   .month-selector-grid {

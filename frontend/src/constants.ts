@@ -4,7 +4,7 @@ export const loginURL = import.meta.env.VITE_LOGIN_URL ?? ""
 export const appName = "就活マネジメント"
 export const appTitleEn = "Job Hunt Manager"
 export const appByline = "by xpotato.net"
-export const appVersion = import.meta.env.VITE_APP_VERSION ?? "v0.3.18-next"
+export const appVersion = import.meta.env.VITE_APP_VERSION ?? "v0.3.19-next"
 
 export const companyStatusOptions = ["未着手", "選考中", "内定", "お見送り", "辞退"] as const
 export const defaultInterestLevel = "妥当"
