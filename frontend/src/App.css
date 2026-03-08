@@ -1079,7 +1079,15 @@ button:focus-visible {
   padding-left: 2px;
 }
 
+.datetime-split-date-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
 .datetime-split-date,
+.datetime-split-date-select,
 .datetime-split-time-select {
   display: block;
   width: 100%;
@@ -1102,6 +1110,37 @@ button:focus-visible {
   font-size: 15px;
   font-weight: 700;
   line-height: 1;
+}
+
+.month-selector-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  width: 100%;
+}
+
+.month-selector-field {
+  display: grid;
+  gap: 6px;
+  min-width: 108px;
+}
+
+.month-selector-field span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.month-selector-field select {
+  min-width: 0;
+}
+
+.month-selector-nav,
+.month-selector-today {
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .inline-step-add {
@@ -3136,6 +3175,7 @@ button:focus-visible {
   .step-edit-datetime,
   .step-inline-datetime,
   .datetime-split-date,
+  .datetime-split-date-select,
   .datetime-split-time-select,
   input[type="datetime-local"] {
     font-size: 16px;
@@ -3145,8 +3185,22 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .datetime-split-date-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .datetime-split-time-group {
     grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  }
+
+  .month-selector-toolbar {
+    align-items: stretch;
+  }
+
+  .month-selector-field,
+  .month-selector-nav,
+  .month-selector-today {
+    width: 100%;
   }
 
   .agenda-item {

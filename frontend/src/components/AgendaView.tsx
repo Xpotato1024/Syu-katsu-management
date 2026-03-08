@@ -1,12 +1,16 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 import type { AgendaEvent, AgendaGroup } from "../types"
-import { formatDayLabel, formatDurationLabel, formatRemainingLabel, formatTimeLabel, toMonthInputValue } from "../utils/date"
+import { formatDayLabel, formatDurationLabel, formatRemainingLabel, formatTimeLabel } from "../utils/date"
 import { stepKindTone } from "../utils/selection"
+import { MonthSelector } from "./MonthSelector"
 import { StepDetailModal } from "./StepDetailModal"
 
 type AgendaViewProps = {
   timelineMonth: Date
   onSetMonth: (value: string) => void
+  onPrevMonth: () => void
+  onNextMonth: () => void
+  onResetMonth: () => void
   calendarCompanyFilter: string
   onCalendarCompanyFilterChange: (value: string) => void
   onClearCalendarCompanyFilter: () => void
@@ -19,6 +23,9 @@ type AgendaViewProps = {
 export function AgendaView({
   timelineMonth,
   onSetMonth,
+  onPrevMonth,
+  onNextMonth,
+  onResetMonth,
   calendarCompanyFilter,
   onCalendarCompanyFilterChange,
   onClearCalendarCompanyFilter,
@@ -27,12 +34,8 @@ export function AgendaView({
   calendarFilteredCompanyCount,
   companiesCount
 }: AgendaViewProps) {
-  const monthPickerRef = useRef<HTMLInputElement | null>(null)
   const [filterInput, setFilterInput] = useState(calendarCompanyFilter)
   const [activeEvent, setActiveEvent] = useState<AgendaEvent | null>(null)
-  const monthInputValue = useMemo(() => toMonthInputValue(timelineMonth), [timelineMonth])
-  const [isMonthEditorOpen, setIsMonthEditorOpen] = useState(false)
-  const [monthDraft, setMonthDraft] = useState(() => toMonthInputValue(timelineMonth))
 
   useEffect(() => {
     setFilterInput(calendarCompanyFilter)
@@ -43,35 +46,6 @@ export function AgendaView({
     onCalendarCompanyFilterChange(filterInput)
   }
 
-  function openMonthPicker() {
-    const picker = monthPickerRef.current
-    if (picker) {
-      try {
-        if (typeof picker.showPicker === "function") {
-          picker.showPicker()
-          return
-        }
-        picker.focus()
-        picker.click()
-        return
-      } catch (_error) {
-        // showPicker/click が使えない環境ではインライン入力へフォールバックする
-      }
-    }
-    setMonthDraft(monthInputValue)
-    setIsMonthEditorOpen(true)
-  }
-
-  function onMonthDraftSubmit(event: FormEvent) {
-    event.preventDefault()
-    onSetMonth(monthDraft)
-    setIsMonthEditorOpen(false)
-  }
-
-  useEffect(() => {
-    setMonthDraft(monthInputValue)
-  }, [monthInputValue])
-
   return (
     <>
       <section className="hero">
@@ -81,37 +55,8 @@ export function AgendaView({
       <section className="panel timeline-toolbar">
         <h2>統合予定</h2>
         <div className="row timeline-row-month">
-          <button type="button" className="month-badge month-badge-button" onClick={openMonthPicker}>
-            {`${timelineMonth.getFullYear()}年${timelineMonth.getMonth() + 1}月`}
-            <small>クリックで変更</small>
-          </button>
-          <input
-            ref={monthPickerRef}
-            className="month-picker-hidden"
-            type="month"
-            value={monthInputValue}
-            onChange={(changeEvent) => {
-              onSetMonth(changeEvent.target.value)
-              setIsMonthEditorOpen(false)
-            }}
-            aria-label="表示月を変更"
-          />
+          <MonthSelector value={timelineMonth} onSetMonth={onSetMonth} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} onResetMonth={onResetMonth} />
         </div>
-        {isMonthEditorOpen && (
-          <form className="row month-fallback-form" onSubmit={onMonthDraftSubmit}>
-            <input
-              className="month-fallback-input"
-              type="month"
-              value={monthDraft}
-              onChange={(event) => setMonthDraft(event.target.value)}
-              aria-label="表示月を YYYY-MM で入力"
-            />
-            <button type="submit">適用</button>
-            <button type="button" className="button-secondary" onClick={() => setIsMonthEditorOpen(false)}>
-              閉じる
-            </button>
-          </form>
-        )}
         <form className="stack timeline-filter-form" onSubmit={onFilterSubmit}>
           <div className="row timeline-filter-primary">
             <input value={filterInput} onChange={(e) => setFilterInput(e.target.value)} placeholder="企業名で予定を絞り込み" />

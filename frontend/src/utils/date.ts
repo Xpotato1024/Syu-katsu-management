@@ -103,3 +103,73 @@ export function toMonthInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   return `${year}-${month}`
 }
+
+export function splitDateInputValue(value?: string): { year: string; month: string; day: string } {
+  const candidate = value?.trim() ?? ""
+  if (!candidate) return { year: "", month: "", day: "" }
+
+  const match = candidate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return { year: "", month: "", day: "" }
+
+  return {
+    year: match[1],
+    month: match[2],
+    day: match[3]
+  }
+}
+
+export function splitMonthInputValue(value?: string): { year: string; month: string } {
+  const candidate = value?.trim() ?? ""
+  if (!candidate) return { year: "", month: "" }
+
+  const match = candidate.match(/^(\d{4})-(\d{2})$/)
+  if (!match) return { year: "", month: "" }
+
+  return {
+    year: match[1],
+    month: match[2]
+  }
+}
+
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate()
+}
+
+export function buildYearOptions(activeYear?: string, pastYears = 2, futureYears = 5, baseDate = new Date()): string[] {
+  const baseYear = baseDate.getFullYear()
+  const values = new Set<string>()
+
+  for (let year = baseYear - pastYears; year <= baseYear + futureYears; year += 1) {
+    values.add(String(year))
+  }
+
+  if (activeYear) values.add(activeYear)
+  return [...values].sort((left, right) => Number(left) - Number(right))
+}
+
+export function buildMonthOptions(): string[] {
+  return Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"))
+}
+
+export function buildDayOptions(year?: string, month?: string): string[] {
+  if (!year || !month) return []
+
+  const yearNumber = Number(year)
+  const monthNumber = Number(month)
+  if (!Number.isFinite(yearNumber) || !Number.isFinite(monthNumber) || monthNumber < 1 || monthNumber > 12) return []
+
+  return Array.from({ length: daysInMonth(yearNumber, monthNumber) }, (_, index) => String(index + 1).padStart(2, "0"))
+}
+
+export function composeDateInputValue(year?: string, month?: string, day?: string): string {
+  if (!year || !month || !day) return ""
+
+  const yearNumber = Number(year)
+  const monthNumber = Number(month)
+  const dayNumber = Number(day)
+  if (!Number.isFinite(yearNumber) || !Number.isFinite(monthNumber) || !Number.isFinite(dayNumber)) return ""
+  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1) return ""
+
+  const clampedDay = Math.min(dayNumber, daysInMonth(yearNumber, monthNumber))
+  return `${String(yearNumber).padStart(4, "0")}-${String(monthNumber).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`
+}
