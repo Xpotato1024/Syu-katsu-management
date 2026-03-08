@@ -43,7 +43,7 @@ func TestCreateAndListCompanies(t *testing.T) {
 	if companies[0].SelectionStatus != "選考中" {
 		t.Fatalf("unexpected selection status: %s", companies[0].SelectionStatus)
 	}
-	if companies[0].InterestLevel != "高" {
+	if companies[0].InterestLevel != "本命" {
 		t.Fatalf("unexpected interest level: %s", companies[0].InterestLevel)
 	}
 }
@@ -108,7 +108,7 @@ func TestCreateCompanyWithSelectionSteps(t *testing.T) {
 	if created.SelectionSteps[0].ID == "" {
 		t.Fatalf("step id should not be empty")
 	}
-	if created.InterestLevel != "中" {
+	if created.InterestLevel != "妥当" {
 		t.Fatalf("unexpected interest level: %s", created.InterestLevel)
 	}
 	if created.SelectionSteps[0].DurationMinutes != 15 {
